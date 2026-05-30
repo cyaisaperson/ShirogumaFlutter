@@ -1,30 +1,67 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:shiroguma_squeeze_app/main.dart';
+import 'package:shiroguma_squeeze_app/app.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('renders the Shiroguma app shell', (tester) async {
+    await tester.pumpWidget(const ShirogumaApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('Shiroguma Squeeze'), findsOneWidget);
+    expect(find.text('Home'), findsWidgets);
+    expect(find.text('Patients'), findsWidgets);
+    expect(find.text('Data'), findsWidgets);
+    expect(find.text('Settings'), findsWidgets);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('bottom navigation switches between primary pages', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Patient roster'), findsOneWidget);
+
+    await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Patient Data'), findsOneWidget);
+
+    await tester.tap(find.text('Settings').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Settings'), findsWidgets);
+    expect(find.text('Device settings'), findsOneWidget);
+  });
+
+  testWidgets('patients page displays mock patients', (tester) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Anya Rahimi'), findsOneWidget);
+    expect(find.text('Marcus Tate'), findsOneWidget);
+    expect(find.text('Joud Karam'), findsOneWidget);
+  });
+
+  testWidgets('selecting a patient updates active patient views', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Marcus Tate'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Active'), findsOneWidget);
+
+    await tester.tap(find.text('Home').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Marcus Tate'), findsOneWidget);
+    expect(find.textContaining('P-002'), findsOneWidget);
+
+    await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Marcus Tate'), findsOneWidget);
+    expect(find.text('Latest pain level'), findsOneWidget);
   });
 }
