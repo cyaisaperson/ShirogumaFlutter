@@ -191,7 +191,7 @@ void main() {
     expect(find.text('1D'), findsOneWidget);
     expect(find.text('7D'), findsOneWidget);
     expect(find.text('30D'), findsOneWidget);
-    expect(find.text('Calendar'), findsOneWidget);
+    expect(find.text('Today'), findsOneWidget);
     expect(find.byKey(const ValueKey('bubble-timeline-graph')), findsOneWidget);
     expect(find.text('Selected pain event'), findsNothing);
     expect(find.text('Wong-Baker face image placeholder'), findsNothing);
@@ -352,7 +352,7 @@ void main() {
     },
   );
 
-  testWidgets('calendar controls sit above the pain timeline graph', (
+  testWidgets('calendar controls share the range row above the graph', (
     tester,
   ) async {
     await tester.pumpWidget(const ShirogumaApp());
@@ -366,13 +366,22 @@ void main() {
     await tester.pumpAndSettle();
 
     final calendarButton = find.byKey(const ValueKey('calendar-open-button'));
+    final rangeSelector = find.byKey(const ValueKey('timeline-range-selector'));
     final graph = find.byKey(const ValueKey('bubble-timeline-graph'));
 
     expect(calendarButton, findsOneWidget);
+    expect(rangeSelector, findsOneWidget);
     expect(graph, findsOneWidget);
+    expect(tester.getSize(graph).height, greaterThanOrEqualTo(205));
     expect(
       tester.getTopLeft(calendarButton).dy,
       lessThan(tester.getTopLeft(graph).dy),
+    );
+    expect(
+      (tester.getTopLeft(calendarButton).dy -
+              tester.getTopLeft(rangeSelector).dy)
+          .abs(),
+      lessThan(24),
     );
   });
 

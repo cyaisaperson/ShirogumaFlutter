@@ -253,8 +253,16 @@ class _GraphCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateLabel =
-        '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
+    final today = DateTime.now();
+    final selectedDay = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
+    final todayDay = DateTime(today.year, today.month, today.day);
+    final dateLabel = selectedDay == todayDay
+        ? 'Today'
+        : '${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.day.toString().padLeft(2, '0')}';
 
     return AppCard(
       key: const ValueKey('patient-graph-card'),
@@ -262,25 +270,15 @@ class _GraphCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: '1D', label: Text('1D')),
-                ButtonSegment(value: '7D', label: Text('7D')),
-                ButtonSegment(value: '30D', label: Text('30D')),
-              ],
-              selected: {selectedRange},
-              onSelectionChanged: (selection) {
-                onRangeChanged(selection.first);
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
           Row(
             children: [
               if (selectedRange == '1D')
                 IconButton(
+                  constraints: const BoxConstraints.tightFor(
+                    width: 36,
+                    height: 36,
+                  ),
+                  padding: EdgeInsets.zero,
                   tooltip: 'Previous day',
                   onPressed: () {
                     onSelectedDateChanged(
@@ -289,12 +287,14 @@ class _GraphCard extends StatelessWidget {
                   },
                   icon: const Icon(Icons.chevron_left),
                 ),
-              const Icon(Icons.calendar_today_outlined),
-              const SizedBox(width: 8),
-              Text('Calendar', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(width: 6),
-              TextButton(
+              IconButton(
                 key: const ValueKey('calendar-open-button'),
+                constraints: const BoxConstraints.tightFor(
+                  width: 36,
+                  height: 36,
+                ),
+                padding: EdgeInsets.zero,
+                tooltip: 'Calendar',
                 onPressed: () async {
                   final pickedDate = await showDialog<DateTime>(
                     context: context,
@@ -307,10 +307,17 @@ class _GraphCard extends StatelessWidget {
                     onSelectedDateChanged(pickedDate);
                   }
                 },
-                child: Text(dateLabel),
+                icon: const Icon(Icons.calendar_today_outlined),
               ),
+              const SizedBox(width: 4),
+              Text(dateLabel, style: Theme.of(context).textTheme.titleMedium),
               if (selectedRange == '1D')
                 IconButton(
+                  constraints: const BoxConstraints.tightFor(
+                    width: 36,
+                    height: 36,
+                  ),
+                  padding: EdgeInsets.zero,
                   tooltip: 'Next day',
                   onPressed: () {
                     onSelectedDateChanged(
@@ -319,11 +326,34 @@ class _GraphCard extends StatelessWidget {
                   },
                   icon: const Icon(Icons.chevron_right),
                 ),
+              const Spacer(),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 178),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: SegmentedButton<String>(
+                    key: const ValueKey('timeline-range-selector'),
+                    style: const ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    segments: const [
+                      ButtonSegment(value: '1D', label: Text('1D')),
+                      ButtonSegment(value: '7D', label: Text('7D')),
+                      ButtonSegment(value: '30D', label: Text('30D')),
+                    ],
+                    selected: {selectedRange},
+                    onSelectionChanged: (selection) {
+                      onRangeChanged(selection.first);
+                    },
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           SizedBox(
-            height: 190,
+            height: 210,
             child: _PainTimelineGraph(
               events: events,
               selectedRange: selectedRange,
@@ -375,7 +405,7 @@ class _PainTimelineGraph extends StatelessWidget {
                   graphEvents,
                   selectedRange,
                 );
-                const sidePadding = 14.0;
+                const sidePadding = 8.0;
                 final usableWidth = constraints.maxWidth - (sidePadding * 2);
                 final axisTop = constraints.maxHeight * 0.52;
                 final labelTop = constraints.maxHeight - 38;
