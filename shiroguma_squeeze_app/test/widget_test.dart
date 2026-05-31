@@ -151,4 +151,40 @@ void main() {
     expect(find.text('Wong-Baker face image placeholder'), findsOneWidget);
     expect(find.text('Export CSV'), findsOneWidget);
   });
+
+  testWidgets('patient data timeline bubbles select event details', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Marcus Tate'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('pain-bubble-event-marcus-today-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('pain-bubble-event-marcus-week-1')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Previous day'), findsOneWidget);
+    expect(find.byTooltip('Next day'), findsOneWidget);
+
+    final weekBubble = find.byKey(
+      const ValueKey('pain-bubble-event-marcus-week-1'),
+    );
+    await tester.ensureVisible(weekBubble);
+    await tester.pumpAndSettle();
+    await tester.tap(weekBubble);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Level 5'), findsWidgets);
+    expect(find.text('91'), findsOneWidget);
+  });
 }

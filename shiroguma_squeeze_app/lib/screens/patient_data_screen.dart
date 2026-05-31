@@ -7,8 +7,15 @@ import '../state/app_state_scope.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_card.dart';
 
-class PatientDataScreen extends StatelessWidget {
+class PatientDataScreen extends StatefulWidget {
   const PatientDataScreen({super.key});
+
+  @override
+  State<PatientDataScreen> createState() => _PatientDataScreenState();
+}
+
+class _PatientDataScreenState extends State<PatientDataScreen> {
+  String? selectedEventId;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +46,12 @@ class PatientDataScreen extends StatelessWidget {
               patient: patient,
               calibration: appState.activeCalibration,
               events: appState.activePatientEvents,
+              selectedEventId: selectedEventId,
+              onSelectEvent: (event) {
+                setState(() {
+                  selectedEventId = event.id;
+                });
+              },
             ),
         ],
       ),
@@ -51,15 +64,20 @@ class _PatientDataContent extends StatelessWidget {
     required this.patient,
     required this.calibration,
     required this.events,
+    required this.selectedEventId,
+    required this.onSelectEvent,
   });
 
   final Patient patient;
   final Calibration? calibration;
   final List<PainEvent> events;
+  final String? selectedEventId;
+  final ValueChanged<PainEvent> onSelectEvent;
 
   @override
   Widget build(BuildContext context) {
     final latestEvent = events.isEmpty ? null : events.first;
+    final selectedEvent = _eventById(events, selectedEventId) ?? latestEvent;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -73,9 +91,13 @@ class _PatientDataContent extends StatelessWidget {
         const SizedBox(height: 16),
         const _RangeAndCalendarCard(),
         const SizedBox(height: 16),
-        _TimelinePlaceholder(events: events),
+        _PainTimelineGraph(
+          events: events,
+          selectedEvent: selectedEvent,
+          onSelectEvent: onSelectEvent,
+        ),
         const SizedBox(height: 16),
-        _SelectedEventCard(event: latestEvent),
+        _SelectedEventCard(event: selectedEvent),
         const SizedBox(height: 16),
         _CalibrationCard(calibration: calibration),
         const SizedBox(height: 16),
@@ -90,6 +112,18 @@ class _PatientDataContent extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  PainEvent? _eventById(List<PainEvent> events, String? eventId) {
+    if (eventId == null) {
+      return null;
+    }
+    for (final event in events) {
+      if (event.id == eventId) {
+        return event;
+      }
+    }
+    return null;
   }
 }
 
@@ -180,6 +214,11 @@ class _RangeAndCalendarCard extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
+              IconButton(
+                tooltip: 'Previous day',
+                onPressed: () {},
+                icon: const Icon(Icons.chevron_left),
+              ),
               const Icon(Icons.calendar_today_outlined),
               const SizedBox(width: 10),
               Text('Calendar', style: Theme.of(context).textTheme.titleMedium),
@@ -187,6 +226,11 @@ class _RangeAndCalendarCard extends StatelessWidget {
               Text(
                 dateLabel,
                 style: const TextStyle(color: AppColors.mutedText),
+              ),
+              IconButton(
+                tooltip: 'Next day',
+                onPressed: () {},
+                icon: const Icon(Icons.chevron_right),
               ),
             ],
           ),
@@ -196,13 +240,22 @@ class _RangeAndCalendarCard extends StatelessWidget {
   }
 }
 
-class _TimelinePlaceholder extends StatelessWidget {
-  const _TimelinePlaceholder({required this.events});
+class _PainTimelineGraph extends StatelessWidget {
+  const _PainTimelineGraph({
+    required this.events,
+    required this.selectedEvent,
+    required this.onSelectEvent,
+  });
 
   final List<PainEvent> events;
+  final PainEvent? selectedEvent;
+  final ValueChanged<PainEvent> onSelectEvent;
 
   @override
   Widget build(BuildContext context) {
+    final graphEvents = events.where((event) => event.painLevel > 0).toList()
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,18 +272,139 @@ class _TimelinePlaceholder extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: AppColors.border),
             ),
-            alignment: Alignment.center,
-            child: Text(
-              events.isEmpty
-                  ? 'No pain events in selected range.'
-                  : '${events.length} mock events ready for graph phase.',
-              style: const TextStyle(color: AppColors.mutedText),
-            ),
+            child: graphEvents.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No pain events in selected range.',
+                      style: TextStyle(color: AppColors.mutedText),
+                    ),
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final firstTime = graphEvents.first.timestamp;
+                      final lastTime = graphEvents.last.timestamp;
+                      final timeRange = lastTime
+                          .difference(firstTime)
+                          .inMilliseconds
+                          .abs();
+                      final usableWidth = constraints.maxWidth - 48;
+
+                      return Stack(
+                        children: [
+                          Positioned(
+                            left: 24,
+                            right: 24,
+                            top: 58,
+                            child: Container(
+                              height: 2,
+                              color: AppColors.border,
+                            ),
+                          ),
+                          for (final event in graphEvents)
+                            Positioned(
+                              left:
+                                  24 +
+                                  usableWidth *
+                                      _timeFraction(
+                                        event.timestamp,
+                                        firstTime,
+                                        timeRange,
+                                      ) -
+                                  _bubbleRadius(event.painLevel),
+                              top: 58 - _bubbleRadius(event.painLevel),
+                              child: _PainBubble(
+                                event: event,
+                                isSelected: selectedEvent?.id == event.id,
+                                onTap: () => onSelectEvent(event),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Bubble size reflects pain level. Tap a bubble to inspect it.',
+            style: TextStyle(color: AppColors.mutedText),
           ),
         ],
       ),
     );
   }
+
+  static double _timeFraction(
+    DateTime timestamp,
+    DateTime firstTime,
+    int timeRange,
+  ) {
+    if (timeRange == 0) {
+      return 0.5;
+    }
+    final elapsed = timestamp.difference(firstTime).inMilliseconds;
+    return (elapsed / timeRange).clamp(0.0, 1.0);
+  }
+}
+
+class _PainBubble extends StatelessWidget {
+  const _PainBubble({
+    required this.event,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final PainEvent event;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = _bubbleRadius(event.painLevel);
+
+    return GestureDetector(
+      key: ValueKey('pain-bubble-${event.id}'),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        width: radius * 2,
+        height: radius * 2,
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.coralDark : AppColors.coral,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isSelected ? AppColors.ink : Colors.white,
+            width: isSelected ? 3 : 2,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x22000000),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          event.painLevel.toString(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+double _bubbleRadius(int painLevel) {
+  return switch (painLevel) {
+    1 => 6,
+    2 => 10,
+    3 => 14,
+    4 => 18,
+    5 => 22,
+    _ => 0,
+  };
 }
 
 class _SelectedEventCard extends StatelessWidget {
