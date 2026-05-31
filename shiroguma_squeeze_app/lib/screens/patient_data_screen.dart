@@ -156,8 +156,7 @@ class _PatientDataContent extends StatelessWidget {
         event.timestamp.day,
       );
       return !eventDate.isBefore(startDate) && !eventDate.isAfter(endDate);
-    }).toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    }).toList()..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     return filtered;
   }
@@ -168,19 +167,19 @@ class _PatientDataContent extends StatelessWidget {
   ) {
     return switch (selectedRange) {
       'Week' => (
-          selectedDate.subtract(Duration(days: selectedDate.weekday - 1)),
-          selectedDate.add(
-            Duration(days: DateTime.daysPerWeek - selectedDate.weekday),
-          ),
+        selectedDate.subtract(Duration(days: selectedDate.weekday - 1)),
+        selectedDate.add(
+          Duration(days: DateTime.daysPerWeek - selectedDate.weekday),
         ),
+      ),
       'Month' => (
-          DateTime(selectedDate.year, selectedDate.month),
-          DateTime(selectedDate.year, selectedDate.month + 1, 0),
-        ),
+        DateTime(selectedDate.year, selectedDate.month),
+        DateTime(selectedDate.year, selectedDate.month + 1, 0),
+      ),
       'Year' => (
-          DateTime(selectedDate.year),
-          DateTime(selectedDate.year, 12, 31),
-        ),
+        DateTime(selectedDate.year),
+        DateTime(selectedDate.year, 12, 31),
+      ),
       _ => (selectedDate, selectedDate),
     };
   }
@@ -232,25 +231,9 @@ class _PatientSummaryCard extends StatelessWidget {
           Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 360),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: SegmentedButton<String>(
-                  key: const ValueKey('timeline-range-selector'),
-                  style: const ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  segments: const [
-                    ButtonSegment(value: 'Day', label: Text('Day')),
-                    ButtonSegment(value: 'Week', label: Text('Week')),
-                    ButtonSegment(value: 'Month', label: Text('Month')),
-                    ButtonSegment(value: 'Year', label: Text('Year')),
-                  ],
-                  selected: {selectedRange},
-                  onSelectionChanged: (selection) {
-                    onRangeChanged(selection.first);
-                  },
-                ),
+              child: _TimelineRangeSelector(
+                selectedRange: selectedRange,
+                onRangeChanged: onRangeChanged,
               ),
             ),
           ),
@@ -337,15 +320,15 @@ class _PatientSummaryCard extends StatelessWidget {
     return switch (selectedRange) {
       'Week' => selectedDate.add(Duration(days: 7 * direction)),
       'Month' => DateTime(
-          selectedDate.year,
-          selectedDate.month + direction,
-          selectedDate.day,
-        ),
+        selectedDate.year,
+        selectedDate.month + direction,
+        selectedDate.day,
+      ),
       'Year' => DateTime(
-          selectedDate.year + direction,
-          selectedDate.month,
-          selectedDate.day,
-        ),
+        selectedDate.year + direction,
+        selectedDate.month,
+        selectedDate.day,
+      ),
       _ => selectedDate.add(Duration(days: direction)),
     };
   }
@@ -361,7 +344,9 @@ class _PatientSummaryCard extends StatelessWidget {
   }
 
   static String _weekTitle(DateTime selectedDate) {
-    final start = selectedDate.subtract(Duration(days: selectedDate.weekday - 1));
+    final start = selectedDate.subtract(
+      Duration(days: selectedDate.weekday - 1),
+    );
     final end = start.add(const Duration(days: 6));
 
     if (start.month == end.month) {
@@ -449,18 +434,23 @@ class _PainTimelineGraph extends StatelessWidget {
                   selectedDate,
                 );
 
-                const sidePadding = 10.0;
                 const labelHeight = 32.0;
                 const labelBottomPadding = 8.0;
                 const bubbleTopPadding = 18.0;
+                final labelWidth = _labelWidth(selectedRange);
+                final axisInset = labelWidth / 2 + 4;
 
                 final maxBubbleRadius = graphEvents
                     .map((event) => _bubbleRadius(event.painLevel))
-                    .fold<double>(0, (max, radius) => radius > max ? radius : max);
+                    .fold<double>(
+                      0,
+                      (max, radius) => radius > max ? radius : max,
+                    );
 
-                final usableWidth = constraints.maxWidth - (sidePadding * 2);
+                final usableWidth = constraints.maxWidth - (axisInset * 2);
                 final axisTop = (constraints.maxHeight - labelHeight) * 0.58;
-                final labelTop = constraints.maxHeight - labelHeight - labelBottomPadding;
+                final labelTop =
+                    constraints.maxHeight - labelHeight - labelBottomPadding;
 
                 final safeBubbleTop = bubbleTopPadding + maxBubbleRadius;
                 final safeAxisTop = axisTop.clamp(
@@ -472,20 +462,19 @@ class _PainTimelineGraph extends StatelessWidget {
                   clipBehavior: Clip.hardEdge,
                   children: [
                     Positioned(
-                      left: sidePadding,
-                      right: sidePadding,
+                      left: axisInset,
+                      right: axisInset,
                       top: safeAxisTop,
                       child: Container(height: 2, color: AppColors.border),
                     ),
                     for (final tick in axis.ticks)
                       Positioned(
-                        left: _safeLabelLeft(
-                          sidePadding + usableWidth * axis.fractionFor(tick.timestamp),
-                          constraints.maxWidth,
-                          selectedRange,
-                        ),
+                        left:
+                            axisInset +
+                            usableWidth * axis.fractionFor(tick.timestamp) -
+                            labelWidth / 2,
                         top: labelTop,
-                        width: _labelWidth(selectedRange),
+                        width: labelWidth,
                         height: labelHeight,
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
@@ -505,7 +494,8 @@ class _PainTimelineGraph extends StatelessWidget {
                     for (final event in graphEvents)
                       Positioned(
                         left: _safeBubbleLeft(
-                          sidePadding + usableWidth * axis.fractionFor(event.timestamp),
+                          axisInset +
+                              usableWidth * axis.fractionFor(event.timestamp),
                           _bubbleRadius(event.painLevel),
                           constraints.maxWidth,
                         ),
@@ -531,21 +521,84 @@ class _PainTimelineGraph extends StatelessWidget {
     };
   }
 
-  static double _safeLabelLeft(
-    double centerX,
-    double graphWidth,
-    String selectedRange,
-  ) {
-    final width = _labelWidth(selectedRange);
-    return (centerX - width / 2).clamp(2.0, graphWidth - width - 2);
-  }
-
   static double _safeBubbleLeft(
     double centerX,
     double radius,
     double graphWidth,
   ) {
     return (centerX - radius).clamp(2.0, graphWidth - radius * 2 - 2);
+  }
+}
+
+class _TimelineRangeSelector extends StatelessWidget {
+  const _TimelineRangeSelector({
+    required this.selectedRange,
+    required this.onRangeChanged,
+  });
+
+  static const _ranges = ['Day', 'Week', 'Month', 'Year'];
+
+  final String selectedRange;
+  final ValueChanged<String> onRangeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('timeline-range-selector'),
+      height: 40,
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(20),
+        color: AppColors.background,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        children: [
+          for (final range in _ranges)
+            Expanded(
+              child: _TimelineRangeButton(
+                label: range,
+                isSelected: selectedRange == range,
+                onTap: () => onRangeChanged(range),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelineRangeButton extends StatelessWidget {
+  const _TimelineRangeButton({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isSelected ? AppColors.coral : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Center(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: isSelected ? Colors.white : AppColors.foreground,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -860,13 +913,13 @@ class _CalendarDayButton extends StatelessWidget {
     final backgroundColor = hasEvent
         ? AppColors.coralDark
         : isSelected
-            ? AppColors.coralSoft
-            : Colors.transparent;
+        ? AppColors.coralSoft
+        : Colors.transparent;
     final foregroundColor = hasEvent
         ? Colors.white
         : isVisibleMonth
-            ? AppColors.foreground
-            : AppColors.mutedText;
+        ? AppColors.foreground
+        : AppColors.mutedText;
 
     return InkWell(
       key: hasEvent
@@ -890,8 +943,9 @@ class _CalendarDayButton extends StatelessWidget {
             day.day.toString(),
             style: TextStyle(
               color: foregroundColor,
-              fontWeight:
-                  hasEvent || isSelected ? FontWeight.w900 : FontWeight.w600,
+              fontWeight: hasEvent || isSelected
+                  ? FontWeight.w900
+                  : FontWeight.w600,
             ),
           ),
         ),
@@ -946,8 +1000,14 @@ class _SelectedEventCard extends StatelessWidget {
               style: TextStyle(color: Colors.white70),
             )
           else ...[
-            _DetailLine(label: 'Pain level', value: 'Level ${event!.painLevel}'),
-            _DetailLine(label: 'Time', value: _formatDateTime(event!.timestamp)),
+            _DetailLine(
+              label: 'Pain level',
+              value: 'Level ${event!.painLevel}',
+            ),
+            _DetailLine(
+              label: 'Time',
+              value: _formatDateTime(event!.timestamp),
+            ),
             _DetailLine(
               label: 'Duration',
               value: event!.durationMs == null
@@ -958,7 +1018,10 @@ class _SelectedEventCard extends StatelessWidget {
               label: 'Peak pressure',
               value: '${event!.peakPressure.toStringAsFixed(0)} mbar',
             ),
-            _DetailLine(label: 'Normalized SAS', value: '${event!.normalizedSas}'),
+            _DetailLine(
+              label: 'Normalized SAS',
+              value: '${event!.normalizedSas}',
+            ),
             _DetailLine(
               label: 'Baseline used',
               value: '${event!.baselinePressure.toStringAsFixed(0)} mbar',
