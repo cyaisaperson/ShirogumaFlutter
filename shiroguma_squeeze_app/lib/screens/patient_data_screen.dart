@@ -134,7 +134,7 @@ class _PatientDataContent extends StatelessWidget {
         const SizedBox(height: 16),
         _SelectedEventCard(event: selectedEvent),
         const SizedBox(height: 16),
-        _CalibrationCard(calibration: calibration),
+        _CalibrationCard(patientId: patient.id, calibration: calibration),
         const SizedBox(height: 16),
         FilledButton.icon(
           onPressed: () {
@@ -577,8 +577,9 @@ class _SelectedEventCard extends StatelessWidget {
 }
 
 class _CalibrationCard extends StatelessWidget {
-  const _CalibrationCard({required this.calibration});
+  const _CalibrationCard({required this.patientId, required this.calibration});
 
+  final String patientId;
   final Calibration? calibration;
 
   @override
@@ -611,9 +612,149 @@ class _CalibrationCard extends StatelessWidget {
                 ),
               ],
             ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: () {
+              showDialog<void>(
+                context: context,
+                builder: (_) => _CalibrationDialog(
+                  patientId: patientId,
+                  calibration: calibration,
+                ),
+              );
+            },
+            icon: const Icon(Icons.tune),
+            label: const Text('Calibrate'),
+          ),
         ],
       ),
     );
+  }
+}
+
+class _CalibrationDialog extends StatefulWidget {
+  const _CalibrationDialog({
+    required this.patientId,
+    required this.calibration,
+  });
+
+  final String patientId;
+  final Calibration? calibration;
+
+  @override
+  State<_CalibrationDialog> createState() => _CalibrationDialogState();
+}
+
+class _CalibrationDialogState extends State<_CalibrationDialog> {
+  final formKey = GlobalKey<FormState>();
+  late final TextEditingController baselineController;
+  late final TextEditingController mvsController;
+  late final TextEditingController notesController;
+
+  @override
+  void initState() {
+    super.initState();
+    baselineController = TextEditingController(
+      text: widget.calibration?.baselinePressure.toStringAsFixed(0) ?? '',
+    );
+    mvsController = TextEditingController(
+      text: widget.calibration?.mvsPressure.toStringAsFixed(0) ?? '',
+    );
+    notesController = TextEditingController(
+      text: widget.calibration?.notes ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    baselineController.dispose();
+    mvsController.dispose();
+    notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Manual calibration'),
+      content: Form(
+        key: formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: baselineController,
+                decoration: const InputDecoration(
+                  labelText: 'Baseline pressure',
+                  suffixText: 'mbar',
+                ),
+                keyboardType: TextInputType.number,
+                validator: _positiveNumber,
+              ),
+              TextFormField(
+                controller: mvsController,
+                decoration: const InputDecoration(
+                  labelText: 'MVS pressure',
+                  suffixText: 'mbar',
+                ),
+                keyboardType: TextInputType.number,
+                validator: _mvsValidator,
+              ),
+              TextFormField(
+                controller: notesController,
+                decoration: const InputDecoration(labelText: 'Notes'),
+                minLines: 2,
+                maxLines: 4,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Save calibration')),
+      ],
+    );
+  }
+
+  String? _positiveNumber(String? value) {
+    final parsed = double.tryParse(value?.trim() ?? '');
+    if (parsed == null || parsed <= 0) {
+      return 'Enter a pressure above 0';
+    }
+    return null;
+  }
+
+  String? _mvsValidator(String? value) {
+    final error = _positiveNumber(value);
+    if (error != null) {
+      return error;
+    }
+    final baseline = double.tryParse(baselineController.text.trim());
+    final mvs = double.parse(value!.trim());
+    if (baseline != null && mvs <= baseline) {
+      return 'MVS must be above baseline';
+    }
+    return null;
+  }
+
+  void _save() {
+    if (!formKey.currentState!.validate()) {
+      return;
+    }
+    AppStateScope.read(context).saveCalibration(
+      patientId: widget.patientId,
+      baselinePressure: double.parse(baselineController.text.trim()),
+      mvsPressure: double.parse(mvsController.text.trim()),
+      notes: notesController.text.trim().isEmpty
+          ? null
+          : notesController.text.trim(),
+    );
+    Navigator.of(context).pop();
   }
 }
 

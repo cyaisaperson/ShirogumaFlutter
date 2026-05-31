@@ -235,4 +235,36 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('manual calibration dialog saves active patient calibration', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Anya Rahimi'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Calibrate'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Calibrate'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Baseline pressure'),
+      '1011',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'MVS pressure'),
+      '2333',
+    );
+    await tester.tap(find.text('Save calibration'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2333 mbar'), findsWidgets);
+  });
 }

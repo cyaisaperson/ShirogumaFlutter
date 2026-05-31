@@ -13,7 +13,7 @@ class AppState extends ChangeNotifier {
     required List<PainEvent> painEvents,
     required AppSettings settings,
   }) : _patients = List.of(patients),
-       _calibrations = List.unmodifiable(calibrations),
+       _calibrations = List.of(calibrations),
        _painEvents = List.unmodifiable(painEvents),
        _settings = settings;
 
@@ -32,7 +32,7 @@ class AppState extends ChangeNotifier {
   AppSettings _settings;
 
   List<Patient> get patients => List.unmodifiable(_patients);
-  List<Calibration> get calibrations => _calibrations;
+  List<Calibration> get calibrations => List.unmodifiable(_calibrations);
   List<PainEvent> get painEvents => _painEvents;
   AppSettings get settings => _settings;
 
@@ -110,6 +110,31 @@ class AppState extends ChangeNotifier {
       return;
     }
     _patients[index] = updatedPatient.copyWith(updatedAt: DateTime.now());
+    notifyListeners();
+  }
+
+  void saveCalibration({
+    required String patientId,
+    required double baselinePressure,
+    required double mvsPressure,
+    int samplesUsed = 0,
+    String? notes,
+  }) {
+    _calibrations.removeWhere(
+      (calibration) => calibration.patientId == patientId,
+    );
+    _calibrations.insert(
+      0,
+      Calibration(
+        id: 'calibration-${DateTime.now().microsecondsSinceEpoch}',
+        patientId: patientId,
+        baselinePressure: baselinePressure,
+        mvsPressure: mvsPressure,
+        samplesUsed: samplesUsed,
+        createdAt: DateTime.now(),
+        notes: notes,
+      ),
+    );
     notifyListeners();
   }
 
