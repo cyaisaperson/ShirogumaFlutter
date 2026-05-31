@@ -5,7 +5,9 @@ import '../theme/app_colors.dart';
 import '../widgets/app_card.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.onNavigate});
+
+  final ValueChanged<int>? onNavigate;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +50,30 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: AppCard(
+                  onTap: () => onNavigate?.call(1),
+                  child: const _QuickAction(
+                    icon: Icons.people,
+                    label: 'Manage patients',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: AppCard(
+                  onTap: () => onNavigate?.call(2),
+                  child: const _QuickAction(
+                    icon: Icons.insert_chart,
+                    label: 'Open data',
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           AppCard(
@@ -126,6 +152,29 @@ class HomeScreen extends StatelessWidget {
     return date.year == now.year &&
         date.month == now.month &&
         date.day == now.day;
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: AppColors.coralDark),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+      ],
+    );
   }
 }
 

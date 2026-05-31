@@ -12,7 +12,7 @@ class AppState extends ChangeNotifier {
     required List<Calibration> calibrations,
     required List<PainEvent> painEvents,
     required AppSettings settings,
-  }) : _patients = List.unmodifiable(patients),
+  }) : _patients = List.of(patients),
        _calibrations = List.unmodifiable(calibrations),
        _painEvents = List.unmodifiable(painEvents),
        _settings = settings;
@@ -31,7 +31,7 @@ class AppState extends ChangeNotifier {
   final List<PainEvent> _painEvents;
   AppSettings _settings;
 
-  List<Patient> get patients => _patients;
+  List<Patient> get patients => List.unmodifiable(_patients);
   List<Calibration> get calibrations => _calibrations;
   List<PainEvent> get painEvents => _painEvents;
   AppSettings get settings => _settings;
@@ -78,6 +78,38 @@ class AppState extends ChangeNotifier {
       return;
     }
     _settings = _settings.copyWith(activePatientId: patientId);
+    notifyListeners();
+  }
+
+  void addPatient({
+    required String name,
+    required String patientCode,
+    required String description,
+    int? age,
+  }) {
+    final now = DateTime.now();
+    final patient = Patient(
+      id: 'patient-${now.microsecondsSinceEpoch}',
+      name: name.trim(),
+      patientCode: patientCode.trim(),
+      age: age,
+      description: description.trim(),
+      createdAt: now,
+      updatedAt: now,
+    );
+    _patients.insert(0, patient);
+    _settings = _settings.copyWith(activePatientId: patient.id);
+    notifyListeners();
+  }
+
+  void updatePatient(Patient updatedPatient) {
+    final index = _patients.indexWhere(
+      (patient) => patient.id == updatedPatient.id,
+    );
+    if (index == -1) {
+      return;
+    }
+    _patients[index] = updatedPatient.copyWith(updatedAt: DateTime.now());
     notifyListeners();
   }
 

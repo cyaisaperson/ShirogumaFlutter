@@ -47,23 +47,21 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int currentIndex = 0;
 
-  final pages = const [
-    HomeScreen(),
-    PatientsScreen(),
-    PatientDataScreen(),
-    SettingsScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      HomeScreen(onNavigate: _selectIndex),
+      const PatientsScreen(),
+      const PatientDataScreen(),
+      const SettingsScreen(),
+    ];
+
     return Scaffold(
       body: pages[currentIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,
         onDestinationSelected: (index) {
-          setState(() {
-            currentIndex = index;
-          });
+          _selectIndex(index);
         },
         destinations: const [
           NavigationDestination(
@@ -89,5 +87,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         ],
       ),
     );
+  }
+
+  void _selectIndex(int index) {
+    setState(() {
+      currentIndex = index;
+    });
   }
 }

@@ -16,4 +16,25 @@ class Patient {
   final String description;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  Patient copyWith({
+    String? id,
+    String? name,
+    String? patientCode,
+    int? age,
+    bool clearAge = false,
+    String? description,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Patient(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      patientCode: patientCode ?? this.patientCode,
+      age: clearAge ? null : age ?? this.age,
+      description: description ?? this.description,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }
