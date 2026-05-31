@@ -56,20 +56,25 @@ class HomeScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: AppCard(
-                  onTap: () => onNavigate?.call(1),
-                  child: const _QuickAction(
-                    icon: Icons.people,
-                    label: 'Manage patients',
+                  tone: AppCardTone.sand,
+                  child: _MetricTile(
+                    label: 'Today events',
+                    value: activeEvents
+                        .where((event) => _isToday(event.timestamp))
+                        .length
+                        .toString(),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: AppCard(
-                  onTap: () => onNavigate?.call(2),
-                  child: const _QuickAction(
-                    icon: Icons.insert_chart,
-                    label: 'Open data',
+                  tone: AppCardTone.coral,
+                  child: _MetricTile(
+                    label: 'Latest pain',
+                    value: latestEvent == null
+                        ? 'None'
+                        : 'Level ${latestEvent.painLevel}',
                   ),
                 ),
               ),
@@ -109,25 +114,20 @@ class HomeScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: AppCard(
-                  tone: AppCardTone.sand,
-                  child: _MetricTile(
-                    label: 'Today events',
-                    value: activeEvents
-                        .where((event) => _isToday(event.timestamp))
-                        .length
-                        .toString(),
+                  onTap: () => onNavigate?.call(1),
+                  child: const _QuickAction(
+                    icon: Icons.people,
+                    label: 'Manage patients',
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: AppCard(
-                  tone: AppCardTone.coral,
-                  child: _MetricTile(
-                    label: 'Latest pain',
-                    value: latestEvent == null
-                        ? 'None'
-                        : 'Level ${latestEvent.painLevel}',
+                  onTap: () => onNavigate?.call(2),
+                  child: const _QuickAction(
+                    icon: Icons.insert_chart,
+                    label: 'Open data',
                   ),
                 ),
               ),
