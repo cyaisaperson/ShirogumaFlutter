@@ -16,6 +16,8 @@ class PatientDataScreen extends StatefulWidget {
 
 class _PatientDataScreenState extends State<PatientDataScreen> {
   String? selectedEventId;
+  String selectedRange = '1D';
+  late DateTime selectedDate = _dateOnly(DateTime.now());
 
   @override
   Widget build(BuildContext context) {
@@ -46,16 +48,34 @@ class _PatientDataScreenState extends State<PatientDataScreen> {
               patient: patient,
               calibration: appState.activeCalibration,
               events: appState.activePatientEvents,
+              selectedRange: selectedRange,
+              selectedDate: selectedDate,
               selectedEventId: selectedEventId,
               onSelectEvent: (event) {
                 setState(() {
                   selectedEventId = event.id;
                 });
               },
+              onRangeChanged: (range) {
+                setState(() {
+                  selectedRange = range;
+                  selectedEventId = null;
+                });
+              },
+              onSelectedDateChanged: (date) {
+                setState(() {
+                  selectedDate = _dateOnly(date);
+                  selectedEventId = null;
+                });
+              },
             ),
         ],
       ),
     );
+  }
+
+  static DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
   }
 }
 
@@ -64,20 +84,30 @@ class _PatientDataContent extends StatelessWidget {
     required this.patient,
     required this.calibration,
     required this.events,
+    required this.selectedRange,
+    required this.selectedDate,
     required this.selectedEventId,
     required this.onSelectEvent,
+    required this.onRangeChanged,
+    required this.onSelectedDateChanged,
   });
 
   final Patient patient;
   final Calibration? calibration;
   final List<PainEvent> events;
+  final String selectedRange;
+  final DateTime selectedDate;
   final String? selectedEventId;
   final ValueChanged<PainEvent> onSelectEvent;
+  final ValueChanged<String> onRangeChanged;
+  final ValueChanged<DateTime> onSelectedDateChanged;
 
   @override
   Widget build(BuildContext context) {
-    final latestEvent = events.isEmpty ? null : events.first;
-    final selectedEvent = _eventById(events, selectedEventId) ?? latestEvent;
+    final filteredEvents = _eventsForRange(events, selectedRange, selectedDate);
+    final latestEvent = filteredEvents.isEmpty ? null : filteredEvents.first;
+    final selectedEvent =
+        _eventById(filteredEvents, selectedEventId) ?? latestEvent;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -89,10 +119,15 @@ class _PatientDataContent extends StatelessWidget {
           latestEvent: latestEvent,
         ),
         const SizedBox(height: 16),
-        const _RangeAndCalendarCard(),
+        _RangeAndCalendarCard(
+          selectedRange: selectedRange,
+          selectedDate: selectedDate,
+          onRangeChanged: onRangeChanged,
+          onSelectedDateChanged: onSelectedDateChanged,
+        ),
         const SizedBox(height: 16),
         _PainTimelineGraph(
-          events: events,
+          events: filteredEvents,
           selectedEvent: selectedEvent,
           onSelectEvent: onSelectEvent,
         ),
@@ -124,6 +159,30 @@ class _PatientDataContent extends StatelessWidget {
       }
     }
     return null;
+  }
+
+  List<PainEvent> _eventsForRange(
+    List<PainEvent> events,
+    String selectedRange,
+    DateTime selectedDate,
+  ) {
+    final startDate = switch (selectedRange) {
+      '7D' => selectedDate.subtract(const Duration(days: 6)),
+      '30D' => selectedDate.subtract(const Duration(days: 29)),
+      _ => selectedDate,
+    };
+    final endDate = selectedDate;
+
+    final filtered = events.where((event) {
+      final eventDate = DateTime(
+        event.timestamp.year,
+        event.timestamp.month,
+        event.timestamp.day,
+      );
+      return !eventDate.isBefore(startDate) && !eventDate.isAfter(endDate);
+    }).toList()..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    return filtered;
   }
 }
 
@@ -187,11 +246,20 @@ class _ProfileCard extends StatelessWidget {
 }
 
 class _RangeAndCalendarCard extends StatelessWidget {
-  const _RangeAndCalendarCard();
+  const _RangeAndCalendarCard({
+    required this.selectedRange,
+    required this.selectedDate,
+    required this.onRangeChanged,
+    required this.onSelectedDateChanged,
+  });
+
+  final String selectedRange;
+  final DateTime selectedDate;
+  final ValueChanged<String> onRangeChanged;
+  final ValueChanged<DateTime> onSelectedDateChanged;
 
   @override
   Widget build(BuildContext context) {
-    final selectedDate = DateTime.now();
     final dateLabel =
         '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
 
@@ -208,30 +276,52 @@ class _RangeAndCalendarCard extends StatelessWidget {
               ButtonSegment(value: '7D', label: Text('7D')),
               ButtonSegment(value: '30D', label: Text('30D')),
             ],
-            selected: const {'1D'},
-            onSelectionChanged: (_) {},
+            selected: {selectedRange},
+            onSelectionChanged: (selection) {
+              onRangeChanged(selection.first);
+            },
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              IconButton(
-                tooltip: 'Previous day',
-                onPressed: () {},
-                icon: const Icon(Icons.chevron_left),
-              ),
+              if (selectedRange == '1D')
+                IconButton(
+                  tooltip: 'Previous day',
+                  onPressed: () {
+                    onSelectedDateChanged(
+                      selectedDate.subtract(const Duration(days: 1)),
+                    );
+                  },
+                  icon: const Icon(Icons.chevron_left),
+                ),
               const Icon(Icons.calendar_today_outlined),
               const SizedBox(width: 10),
               Text('Calendar', style: Theme.of(context).textTheme.titleMedium),
               const Spacer(),
-              Text(
-                dateLabel,
-                style: const TextStyle(color: AppColors.mutedText),
+              TextButton(
+                onPressed: () async {
+                  final pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (pickedDate != null) {
+                    onSelectedDateChanged(pickedDate);
+                  }
+                },
+                child: Text(dateLabel),
               ),
-              IconButton(
-                tooltip: 'Next day',
-                onPressed: () {},
-                icon: const Icon(Icons.chevron_right),
-              ),
+              if (selectedRange == '1D')
+                IconButton(
+                  tooltip: 'Next day',
+                  onPressed: () {
+                    onSelectedDateChanged(
+                      selectedDate.add(const Duration(days: 1)),
+                    );
+                  },
+                  icon: const Icon(Icons.chevron_right),
+                ),
             ],
           ),
         ],

@@ -171,10 +171,20 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey('pain-bubble-event-marcus-week-1')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.byTooltip('Previous day'), findsOneWidget);
     expect(find.byTooltip('Next day'), findsOneWidget);
+
+    await tester.tap(find.text('7D'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Previous day'), findsNothing);
+    expect(find.byTooltip('Next day'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('pain-bubble-event-marcus-week-1')),
+      findsOneWidget,
+    );
 
     final weekBubble = find.byKey(
       const ValueKey('pain-bubble-event-marcus-week-1'),
@@ -186,5 +196,43 @@ void main() {
 
     expect(find.text('Level 5'), findsWidgets);
     expect(find.text('91'), findsOneWidget);
+  });
+
+  testWidgets('one day range previous arrow changes visible events', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Anya Rahimi'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('pain-bubble-event-anya-today-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('pain-bubble-event-anya-yesterday-1')),
+      findsNothing,
+    );
+
+    final previousDay = find.byTooltip('Previous day');
+    await tester.ensureVisible(previousDay);
+    await tester.pumpAndSettle();
+    await tester.tap(previousDay);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('pain-bubble-event-anya-today-1')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('pain-bubble-event-anya-yesterday-1')),
+      findsOneWidget,
+    );
   });
 }
