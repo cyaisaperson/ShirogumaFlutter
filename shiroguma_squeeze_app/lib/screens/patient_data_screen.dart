@@ -26,15 +26,10 @@ class _PatientDataScreenState extends State<PatientDataScreen> {
 
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
         children: [
           Text('Patient Data', style: Theme.of(context).textTheme.displaySmall),
-          const SizedBox(height: 6),
-          const Text(
-            'Active-patient history and calibration preview.',
-            style: TextStyle(color: AppColors.mutedText),
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           if (patient == null)
             const AppCard(
               tone: AppCardTone.sand,
@@ -121,12 +116,9 @@ class _PatientDataContent extends StatelessWidget {
           selectedEvent: selectedEvent,
           onSelectEvent: onSelectEvent,
         ),
-        if (selectedEvent != null) ...[
-          const SizedBox(height: 16),
-          _SelectedEventCard(event: selectedEvent),
-          const SizedBox(height: 16),
-        ] else
-          const SizedBox(height: 16),
+        const SizedBox(height: 16),
+        _SelectedEventCard(event: selectedEvent),
+        const SizedBox(height: 16),
         _CalibrationCard(patientId: patient.id, calibration: calibration),
         const SizedBox(height: 16),
         FilledButton.icon(
@@ -143,13 +135,9 @@ class _PatientDataContent extends StatelessWidget {
   }
 
   PainEvent? _eventById(List<PainEvent> events, String? eventId) {
-    if (eventId == null) {
-      return null;
-    }
+    if (eventId == null) return null;
     for (final event in events) {
-      if (event.id == eventId) {
-        return event;
-      }
+      if (event.id == eventId) return event;
     }
     return null;
   }
@@ -168,7 +156,8 @@ class _PatientDataContent extends StatelessWidget {
         event.timestamp.day,
       );
       return !eventDate.isBefore(startDate) && !eventDate.isAfter(endDate);
-    }).toList()..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    }).toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     return filtered;
   }
@@ -179,19 +168,19 @@ class _PatientDataContent extends StatelessWidget {
   ) {
     return switch (selectedRange) {
       'Week' => (
-        selectedDate.subtract(Duration(days: selectedDate.weekday - 1)),
-        selectedDate.add(
-          Duration(days: DateTime.daysPerWeek - selectedDate.weekday),
+          selectedDate.subtract(Duration(days: selectedDate.weekday - 1)),
+          selectedDate.add(
+            Duration(days: DateTime.daysPerWeek - selectedDate.weekday),
+          ),
         ),
-      ),
       'Month' => (
-        DateTime(selectedDate.year, selectedDate.month),
-        DateTime(selectedDate.year, selectedDate.month + 1, 0),
-      ),
+          DateTime(selectedDate.year, selectedDate.month),
+          DateTime(selectedDate.year, selectedDate.month + 1, 0),
+        ),
       'Year' => (
-        DateTime(selectedDate.year),
-        DateTime(selectedDate.year, 12, 31),
-      ),
+          DateTime(selectedDate.year),
+          DateTime(selectedDate.year, 12, 31),
+        ),
       _ => (selectedDate, selectedDate),
     };
   }
@@ -222,34 +211,27 @@ class _PatientSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final today = DateTime.now();
-    final selectedDay = DateTime(
-      selectedDate.year,
-      selectedDate.month,
-      selectedDate.day,
-    );
-    final todayDay = DateTime(today.year, today.month, today.day);
-    final dateLabel = selectedDay == todayDay
-        ? 'Today'
-        : '${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.year}';
-
     return AppCard(
       key: const ValueKey('patient-summary-card'),
       tone: AppCardTone.sand,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(patient.name, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 6),
           Text(
-            '${patient.patientCode}${patient.age == null ? '' : ' - Age ${patient.age}'}',
-            style: const TextStyle(color: AppColors.mutedText),
+            patient.name,
+            style: Theme.of(context).textTheme.headlineSmall,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerRight,
+          const SizedBox(height: 4),
+          Text(
+            '${patient.patientCode}${patient.age == null ? '' : '  •  Age ${patient.age}'}',
+            style: const TextStyle(color: AppColors.mutedText),
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 18),
+          Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 312),
+              constraints: const BoxConstraints(maxWidth: 360),
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: SegmentedButton<String>(
@@ -272,15 +254,10 @@ class _PatientSummaryCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 14),
           Row(
             children: [
               IconButton(
-                constraints: const BoxConstraints.tightFor(
-                  width: 36,
-                  height: 36,
-                ),
-                padding: EdgeInsets.zero,
                 tooltip: 'Previous range',
                 onPressed: () {
                   onSelectedDateChanged(
@@ -289,36 +266,43 @@ class _PatientSummaryCard extends StatelessWidget {
                 },
                 icon: const Icon(Icons.chevron_left),
               ),
-              IconButton(
-                key: const ValueKey('calendar-open-button'),
-                constraints: const BoxConstraints.tightFor(
-                  width: 36,
-                  height: 36,
-                ),
-                padding: EdgeInsets.zero,
-                tooltip: 'Calendar',
-                onPressed: () async {
-                  final pickedDate = await showDialog<DateTime>(
-                    context: context,
-                    builder: (context) => _EventCalendarDialog(
-                      selectedDate: selectedDate,
-                      events: allEvents,
+              Expanded(
+                child: InkWell(
+                  key: const ValueKey('calendar-open-button'),
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () async {
+                    final pickedDate = await showDialog<DateTime>(
+                      context: context,
+                      builder: (context) => _EventCalendarDialog(
+                        selectedDate: selectedDate,
+                        events: allEvents,
+                      ),
+                    );
+                    if (pickedDate != null) {
+                      onSelectedDateChanged(pickedDate);
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _rangeTitle(selectedRange, selectedDate),
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.arrow_drop_down),
+                      ],
                     ),
-                  );
-                  if (pickedDate != null) {
-                    onSelectedDateChanged(pickedDate);
-                  }
-                },
-                icon: const Icon(Icons.calendar_today_outlined),
-              ),
-              const SizedBox(width: 4),
-              Text(dateLabel, style: Theme.of(context).textTheme.titleMedium),
-              IconButton(
-                constraints: const BoxConstraints.tightFor(
-                  width: 36,
-                  height: 36,
+                  ),
                 ),
-                padding: EdgeInsets.zero,
+              ),
+              IconButton(
                 tooltip: 'Next range',
                 onPressed: () {
                   onSelectedDateChanged(
@@ -329,9 +313,9 @@ class _PatientSummaryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           SizedBox(
-            height: 220,
+            height: 280,
             child: _PainTimelineGraph(
               events: events,
               selectedRange: selectedRange,
@@ -353,17 +337,69 @@ class _PatientSummaryCard extends StatelessWidget {
     return switch (selectedRange) {
       'Week' => selectedDate.add(Duration(days: 7 * direction)),
       'Month' => DateTime(
-        selectedDate.year,
-        selectedDate.month + direction,
-        selectedDate.day,
-      ),
+          selectedDate.year,
+          selectedDate.month + direction,
+          selectedDate.day,
+        ),
       'Year' => DateTime(
-        selectedDate.year + direction,
-        selectedDate.month,
-        selectedDate.day,
-      ),
+          selectedDate.year + direction,
+          selectedDate.month,
+          selectedDate.day,
+        ),
       _ => selectedDate.add(Duration(days: direction)),
     };
+  }
+
+  static String _rangeTitle(String selectedRange, DateTime selectedDate) {
+    return switch (selectedRange) {
+      'Week' => _weekTitle(selectedDate),
+      'Month' => _monthName(selectedDate.month),
+      'Year' => selectedDate.year.toString(),
+      _ =>
+        '${_weekdayName(selectedDate.weekday)}, ${_monthName(selectedDate.month)} ${selectedDate.day}',
+    };
+  }
+
+  static String _weekTitle(DateTime selectedDate) {
+    final start = selectedDate.subtract(Duration(days: selectedDate.weekday - 1));
+    final end = start.add(const Duration(days: 6));
+
+    if (start.month == end.month) {
+      return '${_monthName(start.month)} ${start.day} - ${end.day}';
+    }
+
+    return '${_monthName(start.month)} ${start.day} - ${_monthName(end.month)} ${end.day}';
+  }
+
+  static String _weekdayName(int weekday) {
+    const names = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    return names[weekday - 1];
+  }
+
+  static String _monthName(int month) {
+    const names = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return names[month - 1];
   }
 }
 
@@ -389,16 +425,21 @@ class _PainTimelineGraph extends StatelessWidget {
 
     return Container(
       key: const ValueKey('bubble-timeline-graph'),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.background,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.border),
       ),
       child: graphEvents.isEmpty
           ? const Center(
-              child: Text(
-                'No pain events in selected range.',
-                style: TextStyle(color: AppColors.mutedText),
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'No pain events in selected range.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.mutedText),
+                ),
               ),
             )
           : LayoutBuilder(
@@ -407,44 +448,68 @@ class _PainTimelineGraph extends StatelessWidget {
                   selectedRange,
                   selectedDate,
                 );
-                const sidePadding = 6.0;
+
+                const sidePadding = 10.0;
+                const labelHeight = 32.0;
+                const labelBottomPadding = 8.0;
+                const bubbleTopPadding = 18.0;
+
+                final maxBubbleRadius = graphEvents
+                    .map((event) => _bubbleRadius(event.painLevel))
+                    .fold<double>(0, (max, radius) => radius > max ? radius : max);
+
                 final usableWidth = constraints.maxWidth - (sidePadding * 2);
-                final axisTop = constraints.maxHeight * 0.52;
-                final labelTop = constraints.maxHeight - 38;
+                final axisTop = (constraints.maxHeight - labelHeight) * 0.58;
+                final labelTop = constraints.maxHeight - labelHeight - labelBottomPadding;
+
+                final safeBubbleTop = bubbleTopPadding + maxBubbleRadius;
+                final safeAxisTop = axisTop.clamp(
+                  safeBubbleTop,
+                  constraints.maxHeight - labelHeight - maxBubbleRadius - 12,
+                );
 
                 return Stack(
+                  clipBehavior: Clip.hardEdge,
                   children: [
                     Positioned(
                       left: sidePadding,
                       right: sidePadding,
-                      top: axisTop,
+                      top: safeAxisTop,
                       child: Container(height: 2, color: AppColors.border),
                     ),
                     for (final tick in axis.ticks)
                       Positioned(
-                        left:
-                            sidePadding +
-                            usableWidth * axis.fractionFor(tick.timestamp) -
-                            24,
+                        left: _safeLabelLeft(
+                          sidePadding + usableWidth * axis.fractionFor(tick.timestamp),
+                          constraints.maxWidth,
+                          selectedRange,
+                        ),
                         top: labelTop,
-                        width: 48,
-                        child: Text(
-                          tick.label,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: AppColors.mutedText,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
+                        width: _labelWidth(selectedRange),
+                        height: labelHeight,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            tick.label,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.visible,
+                            style: const TextStyle(
+                              color: AppColors.mutedText,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                       ),
                     for (final event in graphEvents)
                       Positioned(
-                        left:
-                            sidePadding +
-                            usableWidth * axis.fractionFor(event.timestamp) -
-                            _bubbleRadius(event.painLevel),
-                        top: axisTop - _bubbleRadius(event.painLevel),
+                        left: _safeBubbleLeft(
+                          sidePadding + usableWidth * axis.fractionFor(event.timestamp),
+                          _bubbleRadius(event.painLevel),
+                          constraints.maxWidth,
+                        ),
+                        top: safeAxisTop - _bubbleRadius(event.painLevel),
                         child: _PainBubble(
                           event: event,
                           isSelected: selectedEvent?.id == event.id,
@@ -456,6 +521,31 @@ class _PainTimelineGraph extends StatelessWidget {
               },
             ),
     );
+  }
+
+  static double _labelWidth(String selectedRange) {
+    return switch (selectedRange) {
+      'Day' => 54,
+      'Month' => 64,
+      _ => 44,
+    };
+  }
+
+  static double _safeLabelLeft(
+    double centerX,
+    double graphWidth,
+    String selectedRange,
+  ) {
+    final width = _labelWidth(selectedRange);
+    return (centerX - width / 2).clamp(2.0, graphWidth - width - 2);
+  }
+
+  static double _safeBubbleLeft(
+    double centerX,
+    double radius,
+    double graphWidth,
+  ) {
+    return (centerX - radius).clamp(2.0, graphWidth - radius * 2 - 2);
   }
 }
 
@@ -516,6 +606,7 @@ class _TimelineAxis {
     final lastDay = DateTime(selectedDate.year, selectedDate.month + 1, 0).day;
     final end = DateTime(selectedDate.year, selectedDate.month + 1);
     final tickDays = <int>{1, 8, 15, 22, lastDay}.toList()..sort();
+
     final ticks = [
       for (final day in tickDays)
         _TimelineTick(
@@ -540,9 +631,7 @@ class _TimelineAxis {
 
   double fractionFor(DateTime timestamp) {
     final range = end.difference(start).inMilliseconds;
-    if (range <= 0) {
-      return 0.5;
-    }
+    if (range <= 0) return 0.5;
     final elapsed = timestamp.difference(start).inMilliseconds;
     return (elapsed / range).clamp(0.0, 1.0);
   }
@@ -603,11 +692,13 @@ class _PainBubble extends StatelessWidget {
           ],
         ),
         alignment: Alignment.center,
-        child: Text(
-          event.painLevel.toString(),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
+        child: FittedBox(
+          child: Text(
+            event.painLevel.toString(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ),
       ),
@@ -668,6 +759,7 @@ class _EventCalendarDialogState extends State<_EventCalendarDialog> {
             child: Text(
               '${visibleMonth.year}-${visibleMonth.month.toString().padLeft(2, '0')}',
               textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           IconButton(
@@ -768,13 +860,13 @@ class _CalendarDayButton extends StatelessWidget {
     final backgroundColor = hasEvent
         ? AppColors.coralDark
         : isSelected
-        ? AppColors.coralSoft
-        : Colors.transparent;
+            ? AppColors.coralSoft
+            : Colors.transparent;
     final foregroundColor = hasEvent
         ? Colors.white
         : isVisibleMonth
-        ? AppColors.foreground
-        : AppColors.mutedText;
+            ? AppColors.foreground
+            : AppColors.mutedText;
 
     return InkWell(
       key: hasEvent
@@ -793,13 +885,14 @@ class _CalendarDayButton extends StatelessWidget {
           ),
         ),
         alignment: Alignment.center,
-        child: Text(
-          day.day.toString(),
-          style: TextStyle(
-            color: foregroundColor,
-            fontWeight: hasEvent || isSelected
-                ? FontWeight.w900
-                : FontWeight.w600,
+        child: FittedBox(
+          child: Text(
+            day.day.toString(),
+            style: TextStyle(
+              color: foregroundColor,
+              fontWeight:
+                  hasEvent || isSelected ? FontWeight.w900 : FontWeight.w600,
+            ),
           ),
         ),
       ),
@@ -848,16 +941,13 @@ class _SelectedEventCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           if (event == null)
-            const Text('Tap a future timeline bubble to inspect event details.')
+            const Text(
+              'Tap a timeline bubble to inspect event details.',
+              style: TextStyle(color: Colors.white70),
+            )
           else ...[
-            _DetailLine(
-              label: 'Pain level',
-              value: 'Level ${event!.painLevel}',
-            ),
-            _DetailLine(
-              label: 'Time',
-              value: _formatDateTime(event!.timestamp),
-            ),
+            _DetailLine(label: 'Pain level', value: 'Level ${event!.painLevel}'),
+            _DetailLine(label: 'Time', value: _formatDateTime(event!.timestamp)),
             _DetailLine(
               label: 'Duration',
               value: event!.durationMs == null
@@ -868,10 +958,7 @@ class _SelectedEventCard extends StatelessWidget {
               label: 'Peak pressure',
               value: '${event!.peakPressure.toStringAsFixed(0)} mbar',
             ),
-            _DetailLine(
-              label: 'Normalized SAS',
-              value: '${event!.normalizedSas}',
-            ),
+            _DetailLine(label: 'Normalized SAS', value: '${event!.normalizedSas}'),
             _DetailLine(
               label: 'Baseline used',
               value: '${event!.baselinePressure.toStringAsFixed(0)} mbar',
@@ -891,7 +978,10 @@ class _SelectedEventCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
             ),
             alignment: Alignment.center,
-            child: const Text('Wong-Baker face image placeholder'),
+            child: const Text(
+              'Wong-Baker face image placeholder',
+              style: TextStyle(color: Colors.white70),
+            ),
           ),
         ],
       ),
@@ -1062,9 +1152,7 @@ class _CalibrationDialogState extends State<_CalibrationDialog> {
 
   String? _mvsValidator(String? value) {
     final error = _positiveNumber(value);
-    if (error != null) {
-      return error;
-    }
+    if (error != null) return error;
     final baseline = double.tryParse(baselineController.text.trim());
     final mvs = double.parse(value!.trim());
     if (baseline != null && mvs <= baseline) {
@@ -1074,9 +1162,8 @@ class _CalibrationDialogState extends State<_CalibrationDialog> {
   }
 
   void _save() {
-    if (!formKey.currentState!.validate()) {
-      return;
-    }
+    if (!formKey.currentState!.validate()) return;
+
     AppStateScope.read(context).saveCalibration(
       patientId: widget.patientId,
       baselinePressure: double.parse(baselineController.text.trim()),
@@ -1128,6 +1215,7 @@ class _DetailLine extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: 126,
@@ -1139,7 +1227,11 @@ class _DetailLine extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w800),
+              softWrap: true,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
