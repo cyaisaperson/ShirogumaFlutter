@@ -128,4 +128,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Patient Data'), findsOneWidget);
   });
+
+  testWidgets('patient data page shows Phase 4 static sections', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Anya Rahimi'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('1D'), findsOneWidget);
+    expect(find.text('7D'), findsOneWidget);
+    expect(find.text('30D'), findsOneWidget);
+    expect(find.text('Calendar'), findsOneWidget);
+    expect(find.text('Bubble timeline'), findsOneWidget);
+    expect(find.text('Selected pain event'), findsOneWidget);
+    expect(find.text('Wong-Baker face image placeholder'), findsOneWidget);
+    expect(find.text('Export CSV'), findsOneWidget);
+  });
 }
