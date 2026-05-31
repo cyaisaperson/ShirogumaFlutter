@@ -212,9 +212,11 @@ void main() {
 
     await tester.tap(find.text('Data').last);
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('pain-bubble-event-anya-today-1')),
-    );
+
+    final bubble = find.byKey(const ValueKey('pain-bubble-event-anya-today-1'));
+    await tester.ensureVisible(bubble);
+    await tester.pumpAndSettle();
+    await tester.tap(bubble);
     await tester.pumpAndSettle();
 
     final summaryTop = tester
@@ -294,7 +296,7 @@ void main() {
   });
 
   testWidgets(
-    'same-day mock bubbles show readable pain levels and time labels',
+    'same-day mock bubbles show readable pain levels and hourly labels',
     (tester) async {
       await tester.pumpWidget(const ShirogumaApp());
 
@@ -318,8 +320,10 @@ void main() {
       expect(tester.getSize(levelOneBubble).width, greaterThanOrEqualTo(28));
       expect(find.text('1'), findsWidgets);
       expect(find.text('5'), findsWidgets);
-      expect(find.text('08:10'), findsOneWidget);
-      expect(find.text('17:40'), findsOneWidget);
+      expect(find.text('08:00'), findsOneWidget);
+      expect(find.text('18:00'), findsOneWidget);
+      expect(find.text('08:10'), findsNothing);
+      expect(find.text('17:40'), findsNothing);
     },
   );
 
@@ -336,7 +340,9 @@ void main() {
       await tester.tap(find.text('Data').last);
       await tester.pumpAndSettle();
 
-      expect(find.text('10:45'), findsOneWidget);
+      expect(find.text('10:00'), findsOneWidget);
+      expect(find.text('11:00'), findsOneWidget);
+      expect(find.text('10:45'), findsNothing);
 
       await tester.tap(find.text('7D'));
       await tester.pumpAndSettle();
@@ -345,6 +351,30 @@ void main() {
       expect(find.textContaining('/'), findsWidgets);
     },
   );
+
+  testWidgets('calendar controls sit above the pain timeline graph', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Anya Rahimi'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+
+    final calendarButton = find.byKey(const ValueKey('calendar-open-button'));
+    final graph = find.byKey(const ValueKey('bubble-timeline-graph'));
+
+    expect(calendarButton, findsOneWidget);
+    expect(graph, findsOneWidget);
+    expect(
+      tester.getTopLeft(calendarButton).dy,
+      lessThan(tester.getTopLeft(graph).dy),
+    );
+  });
 
   testWidgets('calendar highlights days with pain events', (tester) async {
     await tester.pumpWidget(const ShirogumaApp());

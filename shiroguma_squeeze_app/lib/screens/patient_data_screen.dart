@@ -276,14 +276,7 @@ class _GraphCard extends StatelessWidget {
               },
             ),
           ),
-          const SizedBox(height: 16),
-          _PainTimelineGraph(
-            events: events,
-            selectedRange: selectedRange,
-            selectedEvent: selectedEvent,
-            onSelectEvent: onSelectEvent,
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Row(
             children: [
               if (selectedRange == '1D')
@@ -297,9 +290,9 @@ class _GraphCard extends StatelessWidget {
                   icon: const Icon(Icons.chevron_left),
                 ),
               const Icon(Icons.calendar_today_outlined),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Text('Calendar', style: Theme.of(context).textTheme.titleMedium),
-              const Spacer(),
+              const SizedBox(width: 6),
               TextButton(
                 key: const ValueKey('calendar-open-button'),
                 onPressed: () async {
@@ -328,6 +321,16 @@ class _GraphCard extends StatelessWidget {
                 ),
             ],
           ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 190,
+            child: _PainTimelineGraph(
+              events: events,
+              selectedRange: selectedRange,
+              selectedEvent: selectedEvent,
+              onSelectEvent: onSelectEvent,
+            ),
+          ),
         ],
       ),
     );
@@ -352,119 +355,185 @@ class _PainTimelineGraph extends StatelessWidget {
     final graphEvents = events.where((event) => event.painLevel > 0).toList()
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          key: const ValueKey('bubble-timeline-graph'),
-          height: 154,
-          decoration: BoxDecoration(
-            color: AppColors.background,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: graphEvents.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No pain events in selected range.',
-                    style: TextStyle(color: AppColors.mutedText),
-                  ),
-                )
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final firstTime = graphEvents.first.timestamp;
-                    final lastTime = graphEvents.last.timestamp;
-                    final timeRange = lastTime
-                        .difference(firstTime)
-                        .inMilliseconds
-                        .abs();
-                    final usableWidth = constraints.maxWidth - 56;
+    return Container(
+      key: const ValueKey('bubble-timeline-graph'),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: graphEvents.isEmpty
+          ? const Center(
+              child: Text(
+                'No pain events in selected range.',
+                style: TextStyle(color: AppColors.mutedText),
+              ),
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final axis = _TimelineAxis.forEvents(
+                  graphEvents,
+                  selectedRange,
+                );
+                const sidePadding = 14.0;
+                final usableWidth = constraints.maxWidth - (sidePadding * 2);
+                final axisTop = constraints.maxHeight * 0.52;
+                final labelTop = constraints.maxHeight - 38;
 
-                    return Stack(
-                      children: [
-                        Positioned(
-                          left: 24,
-                          right: 24,
-                          top: 62,
-                          child: Container(height: 2, color: AppColors.border),
+                return Stack(
+                  children: [
+                    Positioned(
+                      left: sidePadding,
+                      right: sidePadding,
+                      top: axisTop,
+                      child: Container(height: 2, color: AppColors.border),
+                    ),
+                    for (final tick in axis.ticks)
+                      Positioned(
+                        left:
+                            sidePadding +
+                            usableWidth * axis.fractionFor(tick.timestamp) -
+                            24,
+                        top: labelTop,
+                        width: 48,
+                        child: Text(
+                          tick.label,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.mutedText,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                        for (final event in graphEvents)
-                          Positioned(
-                            left:
-                                28 +
-                                usableWidth *
-                                    _timeFraction(
-                                      event.timestamp,
-                                      firstTime,
-                                      timeRange,
-                                    ) -
-                                _bubbleRadius(event.painLevel),
-                            top: 62 - _bubbleRadius(event.painLevel),
-                            child: _PainBubble(
-                              event: event,
-                              isSelected: selectedEvent?.id == event.id,
-                              onTap: () => onSelectEvent(event),
-                            ),
-                          ),
-                        for (final event in graphEvents)
-                          Positioned(
-                            left:
-                                28 +
-                                usableWidth *
-                                    _timeFraction(
-                                      event.timestamp,
-                                      firstTime,
-                                      timeRange,
-                                    ) -
-                                18,
-                            top: 108,
-                            width: 44,
-                            child: Text(
-                              _formatAxisLabel(event.timestamp, selectedRange),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: AppColors.mutedText,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Bubble size reflects pain level. Tap a bubble to inspect it.',
-          style: TextStyle(color: AppColors.mutedText),
-        ),
-      ],
+                      ),
+                    for (final event in graphEvents)
+                      Positioned(
+                        left:
+                            sidePadding +
+                            usableWidth * axis.fractionFor(event.timestamp) -
+                            _bubbleRadius(event.painLevel),
+                        top: axisTop - _bubbleRadius(event.painLevel),
+                        child: _PainBubble(
+                          event: event,
+                          isSelected: selectedEvent?.id == event.id,
+                          onTap: () => onSelectEvent(event),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
     );
   }
+}
 
-  static double _timeFraction(
-    DateTime timestamp,
-    DateTime firstTime,
-    int timeRange,
+class _TimelineAxis {
+  const _TimelineAxis({
+    required this.start,
+    required this.end,
+    required this.ticks,
+  });
+
+  final DateTime start;
+  final DateTime end;
+  final List<_TimelineTick> ticks;
+
+  factory _TimelineAxis.forEvents(
+    List<PainEvent> events,
+    String selectedRange,
   ) {
-    if (timeRange == 0) {
+    if (selectedRange == '1D') {
+      return _TimelineAxis._forOneDay(events);
+    }
+    return _TimelineAxis._forDateRange(events);
+  }
+
+  factory _TimelineAxis._forOneDay(List<PainEvent> events) {
+    final first = events.first.timestamp;
+    final last = events.last.timestamp;
+    var start = DateTime(first.year, first.month, first.day, first.hour);
+    var endHour = last.hour;
+    if (last.minute > 0 || last.second > 0 || last.millisecond > 0) {
+      endHour += 1;
+    }
+    var end = DateTime(last.year, last.month, last.day, endHour);
+    if (!end.isAfter(start)) {
+      end = start.add(const Duration(hours: 1));
+    }
+
+    final spanHours = end.difference(start).inHours;
+    final stepHours = spanHours <= 6 ? 1 : 2;
+    final ticks = <_TimelineTick>[];
+    for (
+      var tick = start;
+      !tick.isAfter(end);
+      tick = tick.add(Duration(hours: stepHours))
+    ) {
+      ticks.add(_TimelineTick(tick, _formatHour(tick)));
+    }
+    if (ticks.last.timestamp != end) {
+      ticks.add(_TimelineTick(end, _formatHour(end)));
+    }
+
+    return _TimelineAxis(start: start, end: end, ticks: ticks);
+  }
+
+  factory _TimelineAxis._forDateRange(List<PainEvent> events) {
+    final first = _dateOnly(events.first.timestamp);
+    final last = _dateOnly(events.last.timestamp);
+    final end = last.add(const Duration(days: 1));
+    final spanDays = end.difference(first).inDays;
+    final stepDays = spanDays <= 7
+        ? 1
+        : spanDays <= 14
+        ? 2
+        : 7;
+
+    final ticks = <_TimelineTick>[];
+    for (
+      var tick = first;
+      !tick.isAfter(end);
+      tick = tick.add(Duration(days: stepDays))
+    ) {
+      ticks.add(_TimelineTick(tick, _formatDate(tick)));
+    }
+    if (ticks.last.timestamp != end) {
+      ticks.add(_TimelineTick(end, _formatDate(end)));
+    }
+
+    return _TimelineAxis(start: first, end: end, ticks: ticks);
+  }
+
+  double fractionFor(DateTime timestamp) {
+    final range = end.difference(start).inMilliseconds;
+    if (range <= 0) {
       return 0.5;
     }
-    final elapsed = timestamp.difference(firstTime).inMilliseconds;
-    return (elapsed / timeRange).clamp(0.0, 1.0);
+    final elapsed = timestamp.difference(start).inMilliseconds;
+    return (elapsed / range).clamp(0.0, 1.0);
   }
 
-  static String _formatAxisLabel(DateTime value, String selectedRange) {
-    if (selectedRange != '1D') {
-      final month = value.month.toString().padLeft(2, '0');
-      final day = value.day.toString().padLeft(2, '0');
-      return '$month/$day';
-    }
-    final hour = value.hour.toString().padLeft(2, '0');
-    final minute = value.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+  static DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
   }
+
+  static String _formatHour(DateTime value) {
+    final hour = value.hour.toString().padLeft(2, '0');
+    return '$hour:00';
+  }
+
+  static String _formatDate(DateTime value) {
+    final month = value.month.toString().padLeft(2, '0');
+    final day = value.day.toString().padLeft(2, '0');
+    return '$month/$day';
+  }
+}
+
+class _TimelineTick {
+  const _TimelineTick(this.timestamp, this.label);
+
+  final DateTime timestamp;
+  final String label;
 }
 
 class _PainBubble extends StatelessWidget {
