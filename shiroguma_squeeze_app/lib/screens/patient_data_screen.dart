@@ -112,27 +112,24 @@ class _PatientDataContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ProfileCard(
+        _HistoryCard(
           patient: patient,
-          calibration: calibration,
-          totalEvents: events.length,
-          latestEvent: latestEvent,
-        ),
-        const SizedBox(height: 16),
-        _RangeAndCalendarCard(
           selectedRange: selectedRange,
           selectedDate: selectedDate,
           onRangeChanged: onRangeChanged,
           onSelectedDateChanged: onSelectedDateChanged,
-        ),
-        const SizedBox(height: 16),
-        _PainTimelineGraph(
           events: filteredEvents,
           selectedEvent: selectedEvent,
           onSelectEvent: onSelectEvent,
         ),
         const SizedBox(height: 16),
         _SelectedEventCard(event: selectedEvent),
+        const SizedBox(height: 16),
+        _MetricsCard(
+          calibration: calibration,
+          totalEvents: events.length,
+          latestEvent: latestEvent,
+        ),
         const SizedBox(height: 16),
         _CalibrationCard(patientId: patient.id, calibration: calibration),
         const SizedBox(height: 16),
@@ -186,77 +183,26 @@ class _PatientDataContent extends StatelessWidget {
   }
 }
 
-class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({
+class _HistoryCard extends StatelessWidget {
+  const _HistoryCard({
     required this.patient,
-    required this.calibration,
-    required this.totalEvents,
-    required this.latestEvent,
-  });
-
-  final Patient patient;
-  final Calibration? calibration;
-  final int totalEvents;
-  final PainEvent? latestEvent;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(patient.name, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 6),
-          Text(
-            '${patient.patientCode}${patient.age == null ? '' : ' - Age ${patient.age}'}',
-            style: const TextStyle(color: AppColors.mutedText),
-          ),
-          const SizedBox(height: 12),
-          Text(patient.description),
-          const SizedBox(height: 18),
-          Wrap(
-            runSpacing: 12,
-            spacing: 12,
-            children: [
-              _DataPill(label: 'Total events', value: '$totalEvents'),
-              _DataPill(
-                label: 'Latest pain level',
-                value: latestEvent == null
-                    ? 'None'
-                    : 'Level ${latestEvent!.painLevel}',
-              ),
-              _DataPill(
-                label: 'Baseline',
-                value: calibration == null
-                    ? 'Not set'
-                    : '${calibration!.baselinePressure.toStringAsFixed(0)} mbar',
-              ),
-              _DataPill(
-                label: 'MVS',
-                value: calibration == null
-                    ? 'Not set'
-                    : '${calibration!.mvsPressure.toStringAsFixed(0)} mbar',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RangeAndCalendarCard extends StatelessWidget {
-  const _RangeAndCalendarCard({
     required this.selectedRange,
     required this.selectedDate,
     required this.onRangeChanged,
     required this.onSelectedDateChanged,
+    required this.events,
+    required this.selectedEvent,
+    required this.onSelectEvent,
   });
 
+  final Patient patient;
   final String selectedRange;
   final DateTime selectedDate;
   final ValueChanged<String> onRangeChanged;
   final ValueChanged<DateTime> onSelectedDateChanged;
+  final List<PainEvent> events;
+  final PainEvent? selectedEvent;
+  final ValueChanged<PainEvent> onSelectEvent;
 
   @override
   Widget build(BuildContext context) {
@@ -264,24 +210,51 @@ class _RangeAndCalendarCard extends StatelessWidget {
         '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
 
     return AppCard(
+      key: const ValueKey('patient-history-card'),
       tone: AppCardTone.sand,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('History range', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 14),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: '1D', label: Text('1D')),
-              ButtonSegment(value: '7D', label: Text('7D')),
-              ButtonSegment(value: '30D', label: Text('30D')),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      patient.name,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${patient.patientCode}${patient.age == null ? '' : ' - Age ${patient.age}'}',
+                      style: const TextStyle(color: AppColors.mutedText),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: '1D', label: Text('1D')),
+                  ButtonSegment(value: '7D', label: Text('7D')),
+                  ButtonSegment(value: '30D', label: Text('30D')),
+                ],
+                selected: {selectedRange},
+                onSelectionChanged: (selection) {
+                  onRangeChanged(selection.first);
+                },
+              ),
             ],
-            selected: {selectedRange},
-            onSelectionChanged: (selection) {
-              onRangeChanged(selection.first);
-            },
           ),
           const SizedBox(height: 16),
+          _PainTimelineGraph(
+            events: events,
+            selectedEvent: selectedEvent,
+            onSelectEvent: onSelectEvent,
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               if (selectedRange == '1D')
@@ -330,6 +303,50 @@ class _RangeAndCalendarCard extends StatelessWidget {
   }
 }
 
+class _MetricsCard extends StatelessWidget {
+  const _MetricsCard({
+    required this.calibration,
+    required this.totalEvents,
+    required this.latestEvent,
+  });
+
+  final Calibration? calibration;
+  final int totalEvents;
+  final PainEvent? latestEvent;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      key: const ValueKey('patient-metrics-card'),
+      child: Wrap(
+        runSpacing: 12,
+        spacing: 12,
+        children: [
+          _DataPill(label: 'Total events', value: '$totalEvents'),
+          _DataPill(
+            label: 'Latest pain level',
+            value: latestEvent == null
+                ? 'None'
+                : 'Level ${latestEvent!.painLevel}',
+          ),
+          _DataPill(
+            label: 'Baseline',
+            value: calibration == null
+                ? 'Not set'
+                : '${calibration!.baselinePressure.toStringAsFixed(0)} mbar',
+          ),
+          _DataPill(
+            label: 'MVS',
+            value: calibration == null
+                ? 'Not set'
+                : '${calibration!.mvsPressure.toStringAsFixed(0)} mbar',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PainTimelineGraph extends StatelessWidget {
   const _PainTimelineGraph({
     required this.events,
@@ -346,80 +363,71 @@ class _PainTimelineGraph extends StatelessWidget {
     final graphEvents = events.where((event) => event.painLevel > 0).toList()
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Bubble timeline',
-            style: Theme.of(context).textTheme.titleMedium,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          key: const ValueKey('bubble-timeline-graph'),
+          height: 120,
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.border),
           ),
-          const SizedBox(height: 12),
-          Container(
-            height: 120,
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: graphEvents.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No pain events in selected range.',
-                      style: TextStyle(color: AppColors.mutedText),
-                    ),
-                  )
-                : LayoutBuilder(
-                    builder: (context, constraints) {
-                      final firstTime = graphEvents.first.timestamp;
-                      final lastTime = graphEvents.last.timestamp;
-                      final timeRange = lastTime
-                          .difference(firstTime)
-                          .inMilliseconds
-                          .abs();
-                      final usableWidth = constraints.maxWidth - 48;
+          child: graphEvents.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No pain events in selected range.',
+                    style: TextStyle(color: AppColors.mutedText),
+                  ),
+                )
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final firstTime = graphEvents.first.timestamp;
+                    final lastTime = graphEvents.last.timestamp;
+                    final timeRange = lastTime
+                        .difference(firstTime)
+                        .inMilliseconds
+                        .abs();
+                    final usableWidth = constraints.maxWidth - 48;
 
-                      return Stack(
-                        children: [
+                    return Stack(
+                      children: [
+                        Positioned(
+                          left: 24,
+                          right: 24,
+                          top: 58,
+                          child: Container(height: 2, color: AppColors.border),
+                        ),
+                        for (final event in graphEvents)
                           Positioned(
-                            left: 24,
-                            right: 24,
-                            top: 58,
-                            child: Container(
-                              height: 2,
-                              color: AppColors.border,
+                            left:
+                                24 +
+                                usableWidth *
+                                    _timeFraction(
+                                      event.timestamp,
+                                      firstTime,
+                                      timeRange,
+                                    ) -
+                                _bubbleRadius(event.painLevel),
+                            top: 58 - _bubbleRadius(event.painLevel),
+                            child: _PainBubble(
+                              event: event,
+                              isSelected: selectedEvent?.id == event.id,
+                              onTap: () => onSelectEvent(event),
                             ),
                           ),
-                          for (final event in graphEvents)
-                            Positioned(
-                              left:
-                                  24 +
-                                  usableWidth *
-                                      _timeFraction(
-                                        event.timestamp,
-                                        firstTime,
-                                        timeRange,
-                                      ) -
-                                  _bubbleRadius(event.painLevel),
-                              top: 58 - _bubbleRadius(event.painLevel),
-                              child: _PainBubble(
-                                event: event,
-                                isSelected: selectedEvent?.id == event.id,
-                                onTap: () => onSelectEvent(event),
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Bubble size reflects pain level. Tap a bubble to inspect it.',
-            style: TextStyle(color: AppColors.mutedText),
-          ),
-        ],
-      ),
+                      ],
+                    );
+                  },
+                ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Bubble size reflects pain level. Tap a bubble to inspect it.',
+          style: TextStyle(color: AppColors.mutedText),
+        ),
+      ],
     );
   }
 
@@ -505,6 +513,7 @@ class _SelectedEventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
+      key: const ValueKey('selected-event-card'),
       tone: AppCardTone.dark,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shiroguma_squeeze_app/app.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('renders the Shiroguma app shell', (tester) async {
     await tester.pumpWidget(const ShirogumaApp());
 
@@ -74,6 +79,16 @@ void main() {
     await tester.tap(find.text('Add patient'));
     await tester.pumpAndSettle();
 
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.widgetWithText(TextFormField, 'Patient ID'),
+          )
+          .controller!
+          .text,
+      'P-004',
+    );
+
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Name'),
       'Mina Chen',
@@ -92,6 +107,31 @@ void main() {
 
     expect(find.text('Mina Chen'), findsOneWidget);
     expect(find.textContaining('P-004'), findsOneWidget);
+  });
+
+  testWidgets('rejects duplicate patient IDs in patient dialog', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add patient'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Name'),
+      'Duplicate Patient',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Patient ID'),
+      'P-001',
+    );
+    await tester.tap(find.text('Save patient'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Patient ID already exists'), findsOneWidget);
+    expect(find.text('Save patient'), findsOneWidget);
   });
 
   testWidgets('edits an existing patient from the patients page dialog', (
@@ -117,14 +157,20 @@ void main() {
 
   testWidgets('home quick actions switch to main sections', (tester) async {
     await tester.pumpWidget(const ShirogumaApp());
+    await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Manage patients'));
+    final managePatients = find.text('Manage patients');
+    await tester.scrollUntilVisible(managePatients, 300);
+    await tester.pumpAndSettle();
+    await tester.tap(managePatients);
     await tester.pumpAndSettle();
     expect(find.text('Patient roster'), findsOneWidget);
 
     await tester.tap(find.text('Home').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Open data'));
+    final openData = find.text('Open data');
+    await tester.scrollUntilVisible(openData, 300);
+    await tester.tap(openData);
     await tester.pumpAndSettle();
     expect(find.text('Patient Data'), findsOneWidget);
   });
@@ -146,10 +192,35 @@ void main() {
     expect(find.text('7D'), findsOneWidget);
     expect(find.text('30D'), findsOneWidget);
     expect(find.text('Calendar'), findsOneWidget);
-    expect(find.text('Bubble timeline'), findsOneWidget);
+    expect(find.byKey(const ValueKey('bubble-timeline-graph')), findsOneWidget);
     expect(find.text('Selected pain event'), findsOneWidget);
     expect(find.text('Wong-Baker face image placeholder'), findsOneWidget);
     expect(find.text('Export CSV'), findsOneWidget);
+  });
+
+  testWidgets('patient data boxes follow requested order', (tester) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Anya Rahimi'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+
+    final historyTop = tester
+        .getTopLeft(find.byKey(const ValueKey('patient-history-card')))
+        .dy;
+    final selectedTop = tester
+        .getTopLeft(find.byKey(const ValueKey('selected-event-card')))
+        .dy;
+    final metricsTop = tester
+        .getTopLeft(find.byKey(const ValueKey('patient-metrics-card')))
+        .dy;
+
+    expect(historyTop, lessThan(selectedTop));
+    expect(selectedTop, lessThan(metricsTop));
   });
 
   testWidgets('patient data timeline bubbles select event details', (

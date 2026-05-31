@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
 import '../models/calibration.dart';
@@ -30,11 +33,29 @@ class AppState extends ChangeNotifier {
   final List<Calibration> _calibrations;
   final List<PainEvent> _painEvents;
   AppSettings _settings;
+  static const _patientsStorageKey = 'shiroguma.patients.v1';
 
   List<Patient> get patients => List.unmodifiable(_patients);
   List<Calibration> get calibrations => List.unmodifiable(_calibrations);
   List<PainEvent> get painEvents => _painEvents;
   AppSettings get settings => _settings;
+
+  String get nextPatientCode {
+    var maxNumber = 0;
+    final codePattern = RegExp(r'^P-(\d+)$');
+    for (final patient in _patients) {
+      final match = codePattern.firstMatch(patient.patientCode.trim());
+      if (match == null) {
+        continue;
+      }
+      final number = int.tryParse(match.group(1)!);
+      if (number != null && number > maxNumber) {
+        maxNumber = number;
+      }
+    }
+    final nextNumber = maxNumber + 1;
+    return 'P-${nextNumber.toString().padLeft(3, '0')}';
+  }
 
   Patient? get activePatient {
     final activePatientId = _settings.activePatientId;
@@ -81,12 +102,43 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addPatient({
+  Future<void> loadPersistedPatients() async {
+    final preferences = await SharedPreferences.getInstance();
+    final encodedPatients = preferences.getString(_patientsStorageKey);
+    if (encodedPatients == null) {
+      return;
+    }
+    final decodedPatients = jsonDecode(encodedPatients) as List<dynamic>;
+    _patients
+      ..clear()
+      ..addAll(
+        decodedPatients.map(
+          (patientJson) =>
+              Patient.fromJson(Map<String, Object?>.from(patientJson as Map)),
+        ),
+      );
+    if (_settings.activePatientId != null &&
+        _patientById(_settings.activePatientId!) == null) {
+      _settings = _settings.copyWith(clearActivePatient: true);
+    }
+    notifyListeners();
+  }
+
+  bool isPatientCodeTaken(String patientCode, {String? exceptPatientId}) {
+    final normalizedCode = patientCode.trim().toLowerCase();
+    return _patients.any(
+      (patient) =>
+          patient.id != exceptPatientId &&
+          patient.patientCode.trim().toLowerCase() == normalizedCode,
+    );
+  }
+
+  Future<void> addPatient({
     required String name,
     required String patientCode,
     required String description,
     int? age,
-  }) {
+  }) async {
     final now = DateTime.now();
     final patient = Patient(
       id: 'patient-${now.microsecondsSinceEpoch}',
@@ -100,9 +152,10 @@ class AppState extends ChangeNotifier {
     _patients.insert(0, patient);
     _settings = _settings.copyWith(activePatientId: patient.id);
     notifyListeners();
+    await _persistPatients();
   }
 
-  void updatePatient(Patient updatedPatient) {
+  Future<void> updatePatient(Patient updatedPatient) async {
     final index = _patients.indexWhere(
       (patient) => patient.id == updatedPatient.id,
     );
@@ -111,6 +164,7 @@ class AppState extends ChangeNotifier {
     }
     _patients[index] = updatedPatient.copyWith(updatedAt: DateTime.now());
     notifyListeners();
+    await _persistPatients();
   }
 
   void saveCalibration({
@@ -145,5 +199,13 @@ class AppState extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  Future<void> _persistPatients() async {
+    final preferences = await SharedPreferences.getInstance();
+    final encodedPatients = jsonEncode(
+      _patients.map((patient) => patient.toJson()).toList(),
+    );
+    await preferences.setString(_patientsStorageKey, encodedPatients);
   }
 }

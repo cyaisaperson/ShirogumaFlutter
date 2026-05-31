@@ -169,7 +169,7 @@ class _PatientDialogState extends State<_PatientDialog> {
     final patient = widget.patient;
     nameController = TextEditingController(text: patient?.name ?? '');
     patientCodeController = TextEditingController(
-      text: patient?.patientCode ?? '',
+      text: patient?.patientCode ?? AppStateScope.read(context).nextPatientCode,
     );
     ageController = TextEditingController(text: patient?.age?.toString() ?? '');
     descriptionController = TextEditingController(
@@ -206,7 +206,7 @@ class _PatientDialogState extends State<_PatientDialog> {
                 controller: patientCodeController,
                 decoration: const InputDecoration(labelText: 'Patient ID'),
                 textInputAction: TextInputAction.next,
-                validator: _required,
+                validator: _patientCodeValidator,
               ),
               TextFormField(
                 controller: ageController,
@@ -257,7 +257,22 @@ class _PatientDialogState extends State<_PatientDialog> {
     return null;
   }
 
-  void _save() {
+  String? _patientCodeValidator(String? value) {
+    final requiredError = _required(value);
+    if (requiredError != null) {
+      return requiredError;
+    }
+    final patient = widget.patient;
+    final codeTaken = AppStateScope.read(
+      context,
+    ).isPatientCodeTaken(value!, exceptPatientId: patient?.id);
+    if (codeTaken) {
+      return 'Patient ID already exists';
+    }
+    return null;
+  }
+
+  Future<void> _save() async {
     if (!formKey.currentState!.validate()) {
       return;
     }
@@ -268,14 +283,14 @@ class _PatientDialogState extends State<_PatientDialog> {
     final patient = widget.patient;
 
     if (patient == null) {
-      appState.addPatient(
+      await appState.addPatient(
         name: nameController.text,
         patientCode: patientCodeController.text,
         age: age,
         description: descriptionController.text,
       );
     } else {
-      appState.updatePatient(
+      await appState.updatePatient(
         patient.copyWith(
           name: nameController.text.trim(),
           patientCode: patientCodeController.text.trim(),
@@ -286,6 +301,9 @@ class _PatientDialogState extends State<_PatientDialog> {
       );
     }
 
+    if (!mounted) {
+      return;
+    }
     Navigator.of(context).pop();
   }
 }

@@ -18,6 +18,12 @@ class _ShirogumaAppState extends State<ShirogumaApp> {
   late final AppState appState = AppState.seeded();
 
   @override
+  void initState() {
+    super.initState();
+    appState.loadPersistedPatients();
+  }
+
+  @override
   void dispose() {
     appState.dispose();
     super.dispose();
