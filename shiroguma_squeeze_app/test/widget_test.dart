@@ -193,12 +193,14 @@ void main() {
     expect(find.text('30D'), findsOneWidget);
     expect(find.text('Calendar'), findsOneWidget);
     expect(find.byKey(const ValueKey('bubble-timeline-graph')), findsOneWidget);
-    expect(find.text('Selected pain event'), findsOneWidget);
-    expect(find.text('Wong-Baker face image placeholder'), findsOneWidget);
+    expect(find.text('Selected pain event'), findsNothing);
+    expect(find.text('Wong-Baker face image placeholder'), findsNothing);
     expect(find.text('Export CSV'), findsOneWidget);
   });
 
-  testWidgets('patient data boxes follow requested order', (tester) async {
+  testWidgets('patient data boxes follow requested order after bubble select', (
+    tester,
+  ) async {
     await tester.pumpWidget(const ShirogumaApp());
 
     await tester.tap(find.text('Patients').last);
@@ -207,6 +209,10 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('pain-bubble-event-anya-today-1')),
+    );
     await tester.pumpAndSettle();
 
     final historyTop = tester
@@ -236,6 +242,7 @@ void main() {
     await tester.tap(find.text('Data').last);
     await tester.pumpAndSettle();
 
+    expect(find.text('Selected pain event'), findsNothing);
     expect(
       find.byKey(const ValueKey('pain-bubble-event-marcus-today-1')),
       findsOneWidget,
@@ -267,6 +274,56 @@ void main() {
 
     expect(find.text('Level 5'), findsWidgets);
     expect(find.text('91'), findsOneWidget);
+  });
+
+  testWidgets(
+    'same-day mock bubbles show readable pain levels and time labels',
+    (tester) async {
+      await tester.pumpWidget(const ShirogumaApp());
+
+      await tester.tap(find.text('Patients').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Anya Rahimi'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Data').last);
+      await tester.pumpAndSettle();
+
+      final levelOneBubble = find.byKey(
+        const ValueKey('pain-bubble-event-anya-today-level-1'),
+      );
+      final levelFiveBubble = find.byKey(
+        const ValueKey('pain-bubble-event-anya-today-level-5'),
+      );
+
+      expect(levelOneBubble, findsOneWidget);
+      expect(levelFiveBubble, findsOneWidget);
+      expect(tester.getSize(levelOneBubble).width, greaterThanOrEqualTo(28));
+      expect(find.text('1'), findsWidgets);
+      expect(find.text('5'), findsWidgets);
+      expect(find.text('08:10'), findsOneWidget);
+      expect(find.text('17:40'), findsOneWidget);
+    },
+  );
+
+  testWidgets('calendar highlights days with pain events', (tester) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Anya Rahimi'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('calendar-open-button')));
+    await tester.pumpAndSettle();
+
+    final today = DateTime.now();
+    final todayKey =
+        'calendar-day-with-event-${today.year}-${today.month}-${today.day}';
+    expect(find.byKey(ValueKey(todayKey)), findsOneWidget);
   });
 
   testWidgets('one day range previous arrow changes visible events', (

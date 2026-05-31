@@ -106,8 +106,7 @@ class _PatientDataContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final filteredEvents = _eventsForRange(events, selectedRange, selectedDate);
     final latestEvent = filteredEvents.isEmpty ? null : filteredEvents.first;
-    final selectedEvent =
-        _eventById(filteredEvents, selectedEventId) ?? latestEvent;
+    final selectedEvent = _eventById(filteredEvents, selectedEventId);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -119,12 +118,16 @@ class _PatientDataContent extends StatelessWidget {
           onRangeChanged: onRangeChanged,
           onSelectedDateChanged: onSelectedDateChanged,
           events: filteredEvents,
+          allEvents: events,
           selectedEvent: selectedEvent,
           onSelectEvent: onSelectEvent,
         ),
-        const SizedBox(height: 16),
-        _SelectedEventCard(event: selectedEvent),
-        const SizedBox(height: 16),
+        if (selectedEvent != null) ...[
+          const SizedBox(height: 16),
+          _SelectedEventCard(event: selectedEvent),
+          const SizedBox(height: 16),
+        ] else
+          const SizedBox(height: 16),
         _MetricsCard(
           calibration: calibration,
           totalEvents: events.length,
@@ -191,6 +194,7 @@ class _HistoryCard extends StatelessWidget {
     required this.onRangeChanged,
     required this.onSelectedDateChanged,
     required this.events,
+    required this.allEvents,
     required this.selectedEvent,
     required this.onSelectEvent,
   });
@@ -201,6 +205,7 @@ class _HistoryCard extends StatelessWidget {
   final ValueChanged<String> onRangeChanged;
   final ValueChanged<DateTime> onSelectedDateChanged;
   final List<PainEvent> events;
+  final List<PainEvent> allEvents;
   final PainEvent? selectedEvent;
   final ValueChanged<PainEvent> onSelectEvent;
 
@@ -272,12 +277,14 @@ class _HistoryCard extends StatelessWidget {
               Text('Calendar', style: Theme.of(context).textTheme.titleMedium),
               const Spacer(),
               TextButton(
+                key: const ValueKey('calendar-open-button'),
                 onPressed: () async {
-                  final pickedDate = await showDatePicker(
+                  final pickedDate = await showDialog<DateTime>(
                     context: context,
-                    initialDate: selectedDate,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                    builder: (context) => _EventCalendarDialog(
+                      selectedDate: selectedDate,
+                      events: allEvents,
+                    ),
                   );
                   if (pickedDate != null) {
                     onSelectedDateChanged(pickedDate);
@@ -368,7 +375,7 @@ class _PainTimelineGraph extends StatelessWidget {
       children: [
         Container(
           key: const ValueKey('bubble-timeline-graph'),
-          height: 120,
+          height: 154,
           decoration: BoxDecoration(
             color: AppColors.background,
             borderRadius: BorderRadius.circular(20),
@@ -396,7 +403,7 @@ class _PainTimelineGraph extends StatelessWidget {
                         Positioned(
                           left: 24,
                           right: 24,
-                          top: 58,
+                          top: 62,
                           child: Container(height: 2, color: AppColors.border),
                         ),
                         for (final event in graphEvents)
@@ -410,11 +417,34 @@ class _PainTimelineGraph extends StatelessWidget {
                                       timeRange,
                                     ) -
                                 _bubbleRadius(event.painLevel),
-                            top: 58 - _bubbleRadius(event.painLevel),
+                            top: 62 - _bubbleRadius(event.painLevel),
                             child: _PainBubble(
                               event: event,
                               isSelected: selectedEvent?.id == event.id,
                               onTap: () => onSelectEvent(event),
+                            ),
+                          ),
+                        for (final event in graphEvents)
+                          Positioned(
+                            left:
+                                24 +
+                                usableWidth *
+                                    _timeFraction(
+                                      event.timestamp,
+                                      firstTime,
+                                      timeRange,
+                                    ) -
+                                18,
+                            top: 108,
+                            width: 36,
+                            child: Text(
+                              _formatTime(event.timestamp),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: AppColors.mutedText,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                       ],
@@ -441,6 +471,12 @@ class _PainTimelineGraph extends StatelessWidget {
     }
     final elapsed = timestamp.difference(firstTime).inMilliseconds;
     return (elapsed / timeRange).clamp(0.0, 1.0);
+  }
+
+  static String _formatTime(DateTime value) {
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }
 
@@ -496,13 +532,214 @@ class _PainBubble extends StatelessWidget {
 
 double _bubbleRadius(int painLevel) {
   return switch (painLevel) {
-    1 => 6,
-    2 => 10,
-    3 => 14,
-    4 => 18,
-    5 => 22,
+    1 => 14,
+    2 => 16,
+    3 => 18,
+    4 => 21,
+    5 => 24,
     _ => 0,
   };
+}
+
+class _EventCalendarDialog extends StatefulWidget {
+  const _EventCalendarDialog({
+    required this.selectedDate,
+    required this.events,
+  });
+
+  final DateTime selectedDate;
+  final List<PainEvent> events;
+
+  @override
+  State<_EventCalendarDialog> createState() => _EventCalendarDialogState();
+}
+
+class _EventCalendarDialogState extends State<_EventCalendarDialog> {
+  late DateTime visibleMonth = DateTime(
+    widget.selectedDate.year,
+    widget.selectedDate.month,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final days = _visibleCalendarDays(visibleMonth);
+
+    return AlertDialog(
+      title: Row(
+        children: [
+          IconButton(
+            tooltip: 'Previous month',
+            onPressed: () {
+              setState(() {
+                visibleMonth = DateTime(
+                  visibleMonth.year,
+                  visibleMonth.month - 1,
+                );
+              });
+            },
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Expanded(
+            child: Text(
+              '${visibleMonth.year}-${visibleMonth.month.toString().padLeft(2, '0')}',
+              textAlign: TextAlign.center,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Next month',
+            onPressed: () {
+              setState(() {
+                visibleMonth = DateTime(
+                  visibleMonth.year,
+                  visibleMonth.month + 1,
+                );
+              });
+            },
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 320,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Row(
+              children: [
+                _WeekdayLabel('S'),
+                _WeekdayLabel('M'),
+                _WeekdayLabel('T'),
+                _WeekdayLabel('W'),
+                _WeekdayLabel('T'),
+                _WeekdayLabel('F'),
+                _WeekdayLabel('S'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            GridView.count(
+              crossAxisCount: 7,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
+              children: [
+                for (final day in days)
+                  _CalendarDayButton(
+                    day: day,
+                    isVisibleMonth: day.month == visibleMonth.month,
+                    isSelected: _sameDay(day, widget.selectedDate),
+                    hasEvent: _hasEventOnDay(day),
+                    onTap: () => Navigator.of(context).pop(day),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+
+  List<DateTime> _visibleCalendarDays(DateTime month) {
+    final firstDay = DateTime(month.year, month.month);
+    final startDay = firstDay.subtract(Duration(days: firstDay.weekday % 7));
+    return [
+      for (var index = 0; index < 42; index++)
+        DateTime(startDay.year, startDay.month, startDay.day + index),
+    ];
+  }
+
+  bool _hasEventOnDay(DateTime day) {
+    return widget.events.any((event) => _sameDay(event.timestamp, day));
+  }
+
+  static bool _sameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+}
+
+class _CalendarDayButton extends StatelessWidget {
+  const _CalendarDayButton({
+    required this.day,
+    required this.isVisibleMonth,
+    required this.isSelected,
+    required this.hasEvent,
+    required this.onTap,
+  });
+
+  final DateTime day;
+  final bool isVisibleMonth;
+  final bool isSelected;
+  final bool hasEvent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final backgroundColor = hasEvent
+        ? AppColors.coralDark
+        : isSelected
+        ? AppColors.coralSoft
+        : Colors.transparent;
+    final foregroundColor = hasEvent
+        ? Colors.white
+        : isVisibleMonth
+        ? AppColors.foreground
+        : AppColors.mutedText;
+
+    return InkWell(
+      key: hasEvent
+          ? ValueKey(
+              'calendar-day-with-event-${day.year}-${day.month}-${day.day}',
+            )
+          : ValueKey('calendar-day-${day.year}-${day.month}-${day.day}'),
+      borderRadius: BorderRadius.circular(999),
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: backgroundColor,
+          border: Border.all(
+            color: isSelected ? AppColors.coralDark : Colors.transparent,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          day.day.toString(),
+          style: TextStyle(
+            color: foregroundColor,
+            fontWeight: hasEvent || isSelected
+                ? FontWeight.w900
+                : FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WeekdayLabel extends StatelessWidget {
+  const _WeekdayLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: AppColors.mutedText,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
 }
 
 class _SelectedEventCard extends StatelessWidget {
