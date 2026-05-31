@@ -16,7 +16,7 @@ class PatientDataScreen extends StatefulWidget {
 
 class _PatientDataScreenState extends State<PatientDataScreen> {
   String? selectedEventId;
-  String selectedRange = '1D';
+  String selectedRange = 'Day';
   late DateTime selectedDate = _dateOnly(DateTime.now());
 
   @override
@@ -105,7 +105,6 @@ class _PatientDataContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final filteredEvents = _eventsForRange(events, selectedRange, selectedDate);
-    final latestEvent = filteredEvents.isEmpty ? null : filteredEvents.first;
     final selectedEvent = _eventById(filteredEvents, selectedEventId);
 
     return Column(
@@ -113,11 +112,6 @@ class _PatientDataContent extends StatelessWidget {
       children: [
         _PatientSummaryCard(
           patient: patient,
-          totalEvents: events.length,
-          latestEvent: latestEvent,
-        ),
-        const SizedBox(height: 16),
-        _GraphCard(
           selectedRange: selectedRange,
           selectedDate: selectedDate,
           onRangeChanged: onRangeChanged,
@@ -165,12 +159,7 @@ class _PatientDataContent extends StatelessWidget {
     String selectedRange,
     DateTime selectedDate,
   ) {
-    final startDate = switch (selectedRange) {
-      '7D' => selectedDate.subtract(const Duration(days: 6)),
-      '30D' => selectedDate.subtract(const Duration(days: 29)),
-      _ => selectedDate,
-    };
-    final endDate = selectedDate;
+    final (startDate, endDate) = _rangeBounds(selectedRange, selectedDate);
 
     final filtered = events.where((event) {
       final eventDate = DateTime(
@@ -183,55 +172,34 @@ class _PatientDataContent extends StatelessWidget {
 
     return filtered;
   }
+
+  (DateTime, DateTime) _rangeBounds(
+    String selectedRange,
+    DateTime selectedDate,
+  ) {
+    return switch (selectedRange) {
+      'Week' => (
+        selectedDate.subtract(Duration(days: selectedDate.weekday - 1)),
+        selectedDate.add(
+          Duration(days: DateTime.daysPerWeek - selectedDate.weekday),
+        ),
+      ),
+      'Month' => (
+        DateTime(selectedDate.year, selectedDate.month),
+        DateTime(selectedDate.year, selectedDate.month + 1, 0),
+      ),
+      'Year' => (
+        DateTime(selectedDate.year),
+        DateTime(selectedDate.year, 12, 31),
+      ),
+      _ => (selectedDate, selectedDate),
+    };
+  }
 }
 
 class _PatientSummaryCard extends StatelessWidget {
   const _PatientSummaryCard({
     required this.patient,
-    required this.totalEvents,
-    required this.latestEvent,
-  });
-
-  final Patient patient;
-  final int totalEvents;
-  final PainEvent? latestEvent;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      key: const ValueKey('patient-summary-card'),
-      tone: AppCardTone.sand,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(patient.name, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 6),
-          Text(
-            '${patient.patientCode}${patient.age == null ? '' : ' - Age ${patient.age}'}',
-            style: const TextStyle(color: AppColors.mutedText),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _DataPill(label: 'Total events', value: '$totalEvents'),
-              _DataPill(
-                label: 'Latest pain level',
-                value: latestEvent == null
-                    ? 'None'
-                    : 'Level ${latestEvent!.painLevel}',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GraphCard extends StatelessWidget {
-  const _GraphCard({
     required this.selectedRange,
     required this.selectedDate,
     required this.onRangeChanged,
@@ -242,6 +210,7 @@ class _GraphCard extends StatelessWidget {
     required this.onSelectEvent,
   });
 
+  final Patient patient;
   final String selectedRange;
   final DateTime selectedDate;
   final ValueChanged<String> onRangeChanged;
@@ -262,31 +231,64 @@ class _GraphCard extends StatelessWidget {
     final todayDay = DateTime(today.year, today.month, today.day);
     final dateLabel = selectedDay == todayDay
         ? 'Today'
-        : '${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.day.toString().padLeft(2, '0')}';
+        : '${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.year}';
 
     return AppCard(
-      key: const ValueKey('patient-graph-card'),
+      key: const ValueKey('patient-summary-card'),
       tone: AppCardTone.sand,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(patient.name, style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 6),
+          Text(
+            '${patient.patientCode}${patient.age == null ? '' : ' - Age ${patient.age}'}',
+            style: const TextStyle(color: AppColors.mutedText),
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 312),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: SegmentedButton<String>(
+                  key: const ValueKey('timeline-range-selector'),
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  segments: const [
+                    ButtonSegment(value: 'Day', label: Text('Day')),
+                    ButtonSegment(value: 'Week', label: Text('Week')),
+                    ButtonSegment(value: 'Month', label: Text('Month')),
+                    ButtonSegment(value: 'Year', label: Text('Year')),
+                  ],
+                  selected: {selectedRange},
+                  onSelectionChanged: (selection) {
+                    onRangeChanged(selection.first);
+                  },
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           Row(
             children: [
-              if (selectedRange == '1D')
-                IconButton(
-                  constraints: const BoxConstraints.tightFor(
-                    width: 36,
-                    height: 36,
-                  ),
-                  padding: EdgeInsets.zero,
-                  tooltip: 'Previous day',
-                  onPressed: () {
-                    onSelectedDateChanged(
-                      selectedDate.subtract(const Duration(days: 1)),
-                    );
-                  },
-                  icon: const Icon(Icons.chevron_left),
+              IconButton(
+                constraints: const BoxConstraints.tightFor(
+                  width: 36,
+                  height: 36,
                 ),
+                padding: EdgeInsets.zero,
+                tooltip: 'Previous range',
+                onPressed: () {
+                  onSelectedDateChanged(
+                    _shiftSelectedDate(selectedDate, selectedRange, -1),
+                  );
+                },
+                icon: const Icon(Icons.chevron_left),
+              ),
               IconButton(
                 key: const ValueKey('calendar-open-button'),
                 constraints: const BoxConstraints.tightFor(
@@ -311,52 +313,29 @@ class _GraphCard extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Text(dateLabel, style: Theme.of(context).textTheme.titleMedium),
-              if (selectedRange == '1D')
-                IconButton(
-                  constraints: const BoxConstraints.tightFor(
-                    width: 36,
-                    height: 36,
-                  ),
-                  padding: EdgeInsets.zero,
-                  tooltip: 'Next day',
-                  onPressed: () {
-                    onSelectedDateChanged(
-                      selectedDate.add(const Duration(days: 1)),
-                    );
-                  },
-                  icon: const Icon(Icons.chevron_right),
+              IconButton(
+                constraints: const BoxConstraints.tightFor(
+                  width: 36,
+                  height: 36,
                 ),
-              const Spacer(),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 178),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: SegmentedButton<String>(
-                    key: const ValueKey('timeline-range-selector'),
-                    style: const ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    segments: const [
-                      ButtonSegment(value: '1D', label: Text('1D')),
-                      ButtonSegment(value: '7D', label: Text('7D')),
-                      ButtonSegment(value: '30D', label: Text('30D')),
-                    ],
-                    selected: {selectedRange},
-                    onSelectionChanged: (selection) {
-                      onRangeChanged(selection.first);
-                    },
-                  ),
-                ),
+                padding: EdgeInsets.zero,
+                tooltip: 'Next range',
+                onPressed: () {
+                  onSelectedDateChanged(
+                    _shiftSelectedDate(selectedDate, selectedRange, 1),
+                  );
+                },
+                icon: const Icon(Icons.chevron_right),
               ),
             ],
           ),
           const SizedBox(height: 8),
           SizedBox(
-            height: 210,
+            height: 220,
             child: _PainTimelineGraph(
               events: events,
               selectedRange: selectedRange,
+              selectedDate: selectedDate,
               selectedEvent: selectedEvent,
               onSelectEvent: onSelectEvent,
             ),
@@ -365,18 +344,41 @@ class _GraphCard extends StatelessWidget {
       ),
     );
   }
+
+  static DateTime _shiftSelectedDate(
+    DateTime selectedDate,
+    String selectedRange,
+    int direction,
+  ) {
+    return switch (selectedRange) {
+      'Week' => selectedDate.add(Duration(days: 7 * direction)),
+      'Month' => DateTime(
+        selectedDate.year,
+        selectedDate.month + direction,
+        selectedDate.day,
+      ),
+      'Year' => DateTime(
+        selectedDate.year + direction,
+        selectedDate.month,
+        selectedDate.day,
+      ),
+      _ => selectedDate.add(Duration(days: direction)),
+    };
+  }
 }
 
 class _PainTimelineGraph extends StatelessWidget {
   const _PainTimelineGraph({
     required this.events,
     required this.selectedRange,
+    required this.selectedDate,
     required this.selectedEvent,
     required this.onSelectEvent,
   });
 
   final List<PainEvent> events;
   final String selectedRange;
+  final DateTime selectedDate;
   final PainEvent? selectedEvent;
   final ValueChanged<PainEvent> onSelectEvent;
 
@@ -401,11 +403,11 @@ class _PainTimelineGraph extends StatelessWidget {
             )
           : LayoutBuilder(
               builder: (context, constraints) {
-                final axis = _TimelineAxis.forEvents(
-                  graphEvents,
+                final axis = _TimelineAxis.forRange(
                   selectedRange,
+                  selectedDate,
                 );
-                const sidePadding = 8.0;
+                const sidePadding = 6.0;
                 final usableWidth = constraints.maxWidth - (sidePadding * 2);
                 final axisTop = constraints.maxHeight * 0.52;
                 final labelTop = constraints.maxHeight - 38;
@@ -468,70 +470,72 @@ class _TimelineAxis {
   final DateTime end;
   final List<_TimelineTick> ticks;
 
-  factory _TimelineAxis.forEvents(
-    List<PainEvent> events,
-    String selectedRange,
-  ) {
-    if (selectedRange == '1D') {
-      return _TimelineAxis._forOneDay(events);
-    }
-    return _TimelineAxis._forDateRange(events);
+  factory _TimelineAxis.forRange(String selectedRange, DateTime selectedDate) {
+    return switch (selectedRange) {
+      'Week' => _TimelineAxis._forWeek(selectedDate),
+      'Month' => _TimelineAxis._forMonth(selectedDate),
+      'Year' => _TimelineAxis._forYear(selectedDate),
+      _ => _TimelineAxis._forDay(selectedDate),
+    };
   }
 
-  factory _TimelineAxis._forOneDay(List<PainEvent> events) {
-    final first = events.first.timestamp;
-    final last = events.last.timestamp;
-    var start = DateTime(first.year, first.month, first.day, first.hour);
-    var endHour = last.hour;
-    if (last.minute > 0 || last.second > 0 || last.millisecond > 0) {
-      endHour += 1;
-    }
-    var end = DateTime(last.year, last.month, last.day, endHour);
-    if (!end.isAfter(start)) {
-      end = start.add(const Duration(hours: 1));
-    }
-
-    final spanHours = end.difference(start).inHours;
-    final stepHours = spanHours <= 6 ? 1 : 2;
-    final ticks = <_TimelineTick>[];
-    for (
-      var tick = start;
-      !tick.isAfter(end);
-      tick = tick.add(Duration(hours: stepHours))
-    ) {
-      ticks.add(_TimelineTick(tick, _formatHour(tick)));
-    }
-    if (ticks.last.timestamp != end) {
-      ticks.add(_TimelineTick(end, _formatHour(end)));
-    }
+  factory _TimelineAxis._forDay(DateTime selectedDate) {
+    final start = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
+    final end = start.add(const Duration(days: 1));
+    final ticks = [
+      _TimelineTick(start, '0:00'),
+      _TimelineTick(start.add(const Duration(hours: 6)), '6:00'),
+      _TimelineTick(start.add(const Duration(hours: 12)), '12:00'),
+      _TimelineTick(start.add(const Duration(hours: 18)), '18:00'),
+      _TimelineTick(end, '0:00'),
+    ];
 
     return _TimelineAxis(start: start, end: end, ticks: ticks);
   }
 
-  factory _TimelineAxis._forDateRange(List<PainEvent> events) {
-    final first = _dateOnly(events.first.timestamp);
-    final last = _dateOnly(events.last.timestamp);
-    final end = last.add(const Duration(days: 1));
-    final spanDays = end.difference(first).inDays;
-    final stepDays = spanDays <= 7
-        ? 1
-        : spanDays <= 14
-        ? 2
-        : 7;
+  factory _TimelineAxis._forWeek(DateTime selectedDate) {
+    final start = _dateOnly(
+      selectedDate.subtract(Duration(days: selectedDate.weekday - 1)),
+    );
+    final end = start.add(const Duration(days: 7));
+    const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final ticks = [
+      for (var index = 0; index < labels.length; index += 1)
+        _TimelineTick(start.add(Duration(days: index)), labels[index]),
+    ];
 
-    final ticks = <_TimelineTick>[];
-    for (
-      var tick = first;
-      !tick.isAfter(end);
-      tick = tick.add(Duration(days: stepDays))
-    ) {
-      ticks.add(_TimelineTick(tick, _formatDate(tick)));
-    }
-    if (ticks.last.timestamp != end) {
-      ticks.add(_TimelineTick(end, _formatDate(end)));
-    }
+    return _TimelineAxis(start: start, end: end, ticks: ticks);
+  }
 
-    return _TimelineAxis(start: first, end: end, ticks: ticks);
+  factory _TimelineAxis._forMonth(DateTime selectedDate) {
+    final start = DateTime(selectedDate.year, selectedDate.month);
+    final lastDay = DateTime(selectedDate.year, selectedDate.month + 1, 0).day;
+    final end = DateTime(selectedDate.year, selectedDate.month + 1);
+    final tickDays = <int>{1, 8, 15, 22, lastDay}.toList()..sort();
+    final ticks = [
+      for (final day in tickDays)
+        _TimelineTick(
+          DateTime(selectedDate.year, selectedDate.month, day),
+          _formatDate(DateTime(selectedDate.year, selectedDate.month, day)),
+        ),
+    ];
+
+    return _TimelineAxis(start: start, end: end, ticks: ticks);
+  }
+
+  factory _TimelineAxis._forYear(DateTime selectedDate) {
+    final start = DateTime(selectedDate.year);
+    final end = DateTime(selectedDate.year + 1);
+    final ticks = [
+      for (var month = 1; month <= 12; month += 1)
+        _TimelineTick(DateTime(selectedDate.year, month), '$month'),
+    ];
+
+    return _TimelineAxis(start: start, end: end, ticks: ticks);
   }
 
   double fractionFor(DateTime timestamp) {
@@ -545,11 +549,6 @@ class _TimelineAxis {
 
   static DateTime _dateOnly(DateTime value) {
     return DateTime(value.year, value.month, value.day);
-  }
-
-  static String _formatHour(DateTime value) {
-    final hour = value.hour.toString().padLeft(2, '0');
-    return '$hour:00';
   }
 
   static String _formatDate(DateTime value) {

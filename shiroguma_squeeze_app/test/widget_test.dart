@@ -68,7 +68,8 @@ void main() {
     await tester.tap(find.text('Data').last);
     await tester.pumpAndSettle();
     expect(find.text('Marcus Tate'), findsOneWidget);
-    expect(find.text('Latest pain level'), findsOneWidget);
+    expect(find.text('Latest pain level'), findsNothing);
+    expect(find.text('Total events'), findsNothing);
   });
 
   testWidgets('adds a patient from the patients page dialog', (tester) async {
@@ -188,15 +189,18 @@ void main() {
     await tester.tap(find.text('Data').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('1D'), findsOneWidget);
-    expect(find.text('7D'), findsOneWidget);
-    expect(find.text('30D'), findsOneWidget);
+    expect(find.text('Day'), findsOneWidget);
+    expect(find.text('Week'), findsOneWidget);
+    expect(find.text('Month'), findsOneWidget);
+    expect(find.text('Year'), findsOneWidget);
     expect(find.text('Today'), findsOneWidget);
     expect(find.byKey(const ValueKey('bubble-timeline-graph')), findsOneWidget);
     expect(find.text('Selected pain event'), findsNothing);
     expect(find.text('Wong-Baker face image placeholder'), findsNothing);
     expect(find.byKey(const ValueKey('patient-summary-card')), findsOneWidget);
-    expect(find.byKey(const ValueKey('patient-graph-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('patient-graph-card')), findsNothing);
+    expect(find.text('Total events'), findsNothing);
+    expect(find.text('Latest pain level'), findsNothing);
     expect(find.text('Export CSV'), findsOneWidget);
   });
 
@@ -223,7 +227,7 @@ void main() {
         .getTopLeft(find.byKey(const ValueKey('patient-summary-card')))
         .dy;
     final graphTop = tester
-        .getTopLeft(find.byKey(const ValueKey('patient-graph-card')))
+        .getTopLeft(find.byKey(const ValueKey('bubble-timeline-graph')))
         .dy;
     final selectedTop = tester
         .getTopLeft(find.byKey(const ValueKey('selected-event-card')))
@@ -270,14 +274,14 @@ void main() {
       find.byKey(const ValueKey('pain-bubble-event-marcus-week-1')),
       findsNothing,
     );
-    expect(find.byTooltip('Previous day'), findsOneWidget);
-    expect(find.byTooltip('Next day'), findsOneWidget);
+    expect(find.byTooltip('Previous range'), findsOneWidget);
+    expect(find.byTooltip('Next range'), findsOneWidget);
 
-    await tester.tap(find.text('7D'));
+    await tester.tap(find.text('Week'));
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('Previous day'), findsNothing);
-    expect(find.byTooltip('Next day'), findsNothing);
+    expect(find.byTooltip('Previous range'), findsOneWidget);
+    expect(find.byTooltip('Next range'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('pain-bubble-event-marcus-week-1')),
       findsOneWidget,
@@ -320,37 +324,51 @@ void main() {
       expect(tester.getSize(levelOneBubble).width, greaterThanOrEqualTo(28));
       expect(find.text('1'), findsWidgets);
       expect(find.text('5'), findsWidgets);
-      expect(find.text('08:00'), findsOneWidget);
+      expect(find.text('0:00'), findsWidgets);
+      expect(find.text('6:00'), findsOneWidget);
+      expect(find.text('12:00'), findsOneWidget);
       expect(find.text('18:00'), findsOneWidget);
       expect(find.text('08:10'), findsNothing);
       expect(find.text('17:40'), findsNothing);
     },
   );
 
-  testWidgets(
-    'timeline axis switches from time labels to date labels by range',
-    (tester) async {
-      await tester.pumpWidget(const ShirogumaApp());
+  testWidgets('timeline axis switches by day week month and year tabs', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
 
-      await tester.tap(find.text('Patients').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Marcus Tate'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Marcus Tate'));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Data').last);
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
 
-      expect(find.text('10:00'), findsOneWidget);
-      expect(find.text('11:00'), findsOneWidget);
-      expect(find.text('10:45'), findsNothing);
+    expect(find.text('0:00'), findsWidgets);
+    expect(find.text('6:00'), findsOneWidget);
+    expect(find.text('12:00'), findsOneWidget);
+    expect(find.text('10:45'), findsNothing);
 
-      await tester.tap(find.text('7D'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Week'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('10:45'), findsNothing);
-      expect(find.textContaining('/'), findsWidgets);
-    },
-  );
+    expect(find.text('Mon'), findsOneWidget);
+    expect(find.text('Sun'), findsOneWidget);
+
+    await tester.tap(find.text('Month'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('/'), findsWidgets);
+
+    await tester.tap(find.text('Year'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1'), findsWidgets);
+    expect(find.text('12'), findsWidgets);
+    expect(find.text('10:45'), findsNothing);
+  });
 
   testWidgets('calendar controls share the range row above the graph', (
     tester,
@@ -372,16 +390,14 @@ void main() {
     expect(calendarButton, findsOneWidget);
     expect(rangeSelector, findsOneWidget);
     expect(graph, findsOneWidget);
-    expect(tester.getSize(graph).height, greaterThanOrEqualTo(205));
+    expect(tester.getSize(graph).height, greaterThanOrEqualTo(215));
     expect(
       tester.getTopLeft(calendarButton).dy,
       lessThan(tester.getTopLeft(graph).dy),
     );
     expect(
-      (tester.getTopLeft(calendarButton).dy -
-              tester.getTopLeft(rangeSelector).dy)
-          .abs(),
-      lessThan(24),
+      tester.getTopLeft(rangeSelector).dy,
+      lessThan(tester.getTopLeft(calendarButton).dy),
     );
   });
 
@@ -430,7 +446,7 @@ void main() {
       findsNothing,
     );
 
-    final previousDay = find.byTooltip('Previous day');
+    final previousDay = find.byTooltip('Previous range');
     await tester.ensureVisible(previousDay);
     await tester.pumpAndSettle();
     await tester.tap(previousDay);
