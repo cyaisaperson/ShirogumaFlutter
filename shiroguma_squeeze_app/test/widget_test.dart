@@ -195,6 +195,8 @@ void main() {
     expect(find.byKey(const ValueKey('bubble-timeline-graph')), findsOneWidget);
     expect(find.text('Selected pain event'), findsNothing);
     expect(find.text('Wong-Baker face image placeholder'), findsNothing);
+    expect(find.byKey(const ValueKey('patient-summary-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('patient-graph-card')), findsOneWidget);
     expect(find.text('Export CSV'), findsOneWidget);
   });
 
@@ -215,18 +217,33 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final historyTop = tester
-        .getTopLeft(find.byKey(const ValueKey('patient-history-card')))
+    final summaryTop = tester
+        .getTopLeft(find.byKey(const ValueKey('patient-summary-card')))
+        .dy;
+    final graphTop = tester
+        .getTopLeft(find.byKey(const ValueKey('patient-graph-card')))
         .dy;
     final selectedTop = tester
         .getTopLeft(find.byKey(const ValueKey('selected-event-card')))
         .dy;
-    final metricsTop = tester
-        .getTopLeft(find.byKey(const ValueKey('patient-metrics-card')))
-        .dy;
 
-    expect(historyTop, lessThan(selectedTop));
-    expect(selectedTop, lessThan(metricsTop));
+    expect(summaryTop, lessThan(graphTop));
+    expect(graphTop, lessThan(selectedTop));
+    expect(find.byKey(const ValueKey('patient-metrics-card')), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('patient-summary-card')),
+        matching: find.text('Baseline'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('patient-summary-card')),
+        matching: find.text('MVS'),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('patient data timeline bubbles select event details', (
@@ -306,6 +323,29 @@ void main() {
     },
   );
 
+  testWidgets(
+    'timeline axis switches from time labels to date labels by range',
+    (tester) async {
+      await tester.pumpWidget(const ShirogumaApp());
+
+      await tester.tap(find.text('Patients').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Marcus Tate'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Data').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('10:45'), findsOneWidget);
+
+      await tester.tap(find.text('7D'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('10:45'), findsNothing);
+      expect(find.textContaining('/'), findsWidgets);
+    },
+  );
+
   testWidgets('calendar highlights days with pain events', (tester) async {
     await tester.pumpWidget(const ShirogumaApp());
 
@@ -317,7 +357,10 @@ void main() {
     await tester.tap(find.text('Data').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('calendar-open-button')));
+    final calendarButton = find.byKey(const ValueKey('calendar-open-button'));
+    await tester.ensureVisible(calendarButton);
+    await tester.pumpAndSettle();
+    await tester.tap(calendarButton);
     await tester.pumpAndSettle();
 
     final today = DateTime.now();
