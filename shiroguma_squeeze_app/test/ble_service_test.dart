@@ -64,4 +64,14 @@ void main() {
     expect(message, contains('PressureTX'));
     expect(message, isNot(contains('TimeoutException')));
   });
+
+  test('selects Android BLE permissions by SDK version', () {
+    expect(BlePermissionPlan.forAndroidSdk(31), [
+      BlePermission.bluetoothScan,
+      BlePermission.bluetoothConnect,
+    ]);
+    expect(BlePermissionPlan.forAndroidSdk(30), [
+      BlePermission.accessFineLocation,
+    ]);
+  });
 }

@@ -1,7 +1,23 @@
 import 'dart:async';
-import 'dart:typed_data';
 
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+enum BlePermission { bluetoothScan, bluetoothConnect, accessFineLocation }
+
+class BlePermissionPlan {
+  static List<BlePermission> forAndroidSdk(int sdkInt) {
+    if (sdkInt >= 31) {
+      return const [
+        BlePermission.bluetoothScan,
+        BlePermission.bluetoothConnect,
+      ];
+    }
+    return const [BlePermission.accessFineLocation];
+  }
+}
 
 class BleDiscoveredDevice {
   const BleDiscoveredDevice({
@@ -50,11 +66,16 @@ class BleService {
   Stream<List<BleDiscoveredDevice>> scanNearbyDevices({
     Duration timeout = const Duration(seconds: 10),
   }) async* {
+    await _prepareForBle('browse scan');
+    debugPrint('[BLE] Starting browse scan for ${timeout.inSeconds}s');
     await FlutterBluePlus.startScan(timeout: timeout);
     yield* FlutterBluePlus.scanResults.map((results) {
       final discovered = <String, BleDiscoveredDevice>{};
       for (final result in results) {
         final name = _displayNameFor(result.device, result.advertisementData);
+        debugPrint(
+          '[BLE] Device found: name="$name", id=${result.device.remoteId.str}, rssi=${result.rssi}',
+        );
         discovered[result.device.remoteId.str] = BleDiscoveredDevice(
           id: result.device.remoteId.str,
           name: name,
@@ -75,16 +96,24 @@ class BleService {
   Future<BluetoothDevice> scanForDevice({
     Duration timeout = const Duration(seconds: 8),
   }) async {
+    await _prepareForBle('auto scan');
     final completer = Completer<BluetoothDevice>();
     final scanNames = <String>{
       deviceName.trim(),
       defaultDeviceName,
     }.where((name) => name.isNotEmpty).toList();
+    debugPrint(
+      '[BLE] Starting auto scan for ${timeout.inSeconds}s with names=$scanNames',
+    );
     await _scanSubscription?.cancel();
     _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
       for (final result in results) {
         final name = _displayNameFor(result.device, result.advertisementData);
+        debugPrint(
+          '[BLE] Device found: name="$name", id=${result.device.remoteId.str}, rssi=${result.rssi}',
+        );
         if (isMatchingDeviceName(deviceName, name) && !completer.isCompleted) {
+          debugPrint('[BLE] Matched device "$name" for auto connect');
           completer.complete(result.device);
         }
       }
@@ -121,6 +150,7 @@ class BleService {
     required void Function(int batteryPercent) onBattery,
     void Function(BluetoothConnectionState state)? onConnectionState,
   }) async {
+    await _prepareForBle('connect to selected device');
     final device =
         discoveredDevice.device ?? BluetoothDevice.fromId(discoveredDevice.id);
     await connectToDevice(
@@ -137,13 +167,17 @@ class BleService {
     required void Function(int batteryPercent) onBattery,
     void Function(BluetoothConnectionState state)? onConnectionState,
   }) async {
+    await _prepareForBle('connect');
     _device = device;
     _connectionSubscription = device.connectionState.listen(onConnectionState);
+    debugPrint('[BLE] Connecting to ${device.remoteId.str}');
     await device.connect(
       license: License.nonprofit,
       timeout: const Duration(seconds: 12),
     );
+    debugPrint('[BLE] Connect result: connected to ${device.remoteId.str}');
     final services = await device.discoverServices();
+    debugPrint('[BLE] Service discovery complete: ${services.length} services');
     _pressureCharacteristic = _findCharacteristic(
       services,
       pressureCharacteristicUuid,
@@ -154,11 +188,17 @@ class BleService {
     );
 
     await _pressureCharacteristic!.setNotifyValue(true);
+    debugPrint(
+      '[BLE] Pressure notification subscription enabled: $pressureCharacteristicUuid',
+    );
     _pressureSubscription = _pressureCharacteristic!.lastValueStream.listen(
       (value) => onPressure(parsePressureBytes(value)),
     );
 
     await _batteryCharacteristic!.setNotifyValue(true);
+    debugPrint(
+      '[BLE] Battery notification subscription enabled: $batteryCharacteristicUuid',
+    );
     _batterySubscription = _batteryCharacteristic!.lastValueStream.listen(
       (value) => onBattery(parseBatteryBytes(value)),
     );
@@ -212,6 +252,56 @@ class BleService {
 
   static String _normalizeDeviceName(String name) {
     return name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  }
+
+  Future<void> _prepareForBle(String operation) async {
+    debugPrint('[BLE] Preparing for $operation');
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      await _requestAndroidBlePermissions();
+    }
+    await _ensureBluetoothEnabled();
+  }
+
+  Future<void> _requestAndroidBlePermissions() async {
+    final androidInfo = await DeviceInfoPlugin().androidInfo;
+    final permissions = BlePermissionPlan.forAndroidSdk(
+      androidInfo.version.sdkInt,
+    );
+    debugPrint(
+      '[BLE] Android SDK ${androidInfo.version.sdkInt}; requesting permissions: $permissions',
+    );
+
+    for (final permission in permissions) {
+      final handlerPermission = _permissionHandlerPermission(permission);
+      final beforeStatus = await handlerPermission.status;
+      debugPrint('[BLE] Permission $permission before request: $beforeStatus');
+      final afterStatus = beforeStatus.isGranted
+          ? beforeStatus
+          : await handlerPermission.request();
+      debugPrint('[BLE] Permission $permission after request: $afterStatus');
+      if (!afterStatus.isGranted) {
+        throw StateError('Bluetooth permission denied: $permission');
+      }
+    }
+  }
+
+  Future<void> _ensureBluetoothEnabled() async {
+    final adapterState = await FlutterBluePlus.adapterState.first.timeout(
+      const Duration(seconds: 3),
+      onTimeout: () => BluetoothAdapterState.unknown,
+    );
+    debugPrint('[BLE] Bluetooth adapter state: $adapterState');
+    if (adapterState != BluetoothAdapterState.on) {
+      throw StateError('Bluetooth is not enabled.');
+    }
+  }
+
+  Permission _permissionHandlerPermission(BlePermission permission) {
+    return switch (permission) {
+      BlePermission.bluetoothScan => Permission.bluetoothScan,
+      BlePermission.bluetoothConnect => Permission.bluetoothConnect,
+      BlePermission.accessFineLocation => Permission.locationWhenInUse,
+    };
   }
 
   static BluetoothCharacteristic _findCharacteristic(
