@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shiroguma_squeeze_app/models/app_settings.dart';
 import 'package:shiroguma_squeeze_app/services/ble_service.dart';
+import 'package:shiroguma_squeeze_app/state/device_state.dart';
 
 void main() {
   test('parses little-endian pressure float notifications', () {
@@ -38,5 +42,15 @@ void main() {
 
     expect(namedDevice.displayName, 'PressureTX');
     expect(unnamedDevice.displayName, 'Unknown device');
+  });
+
+  test('formats scan timeout as a device search message', () {
+    final message = DeviceState.bleErrorMessage(
+      TimeoutException('Future not completed', const Duration(seconds: 8)),
+      const AppSettings(),
+    );
+
+    expect(message, contains('No Bluetooth device named PressureTX found'));
+    expect(message, isNot(contains('TimeoutException')));
   });
 }

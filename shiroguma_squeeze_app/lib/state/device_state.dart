@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
@@ -87,7 +89,7 @@ class DeviceState extends ChangeNotifier {
       _connectedDeviceName = settings.preferredDeviceName;
       _setStatus(DeviceConnectionStatus.connected);
     } catch (error) {
-      _errorMessage = error.toString();
+      _errorMessage = bleErrorMessage(error, settings);
       _connectedDeviceName = null;
       _setStatus(DeviceConnectionStatus.error);
     }
@@ -162,10 +164,17 @@ class DeviceState extends ChangeNotifier {
       _connectedDeviceName = discoveredDevice.displayName;
       _setStatus(DeviceConnectionStatus.connected);
     } catch (error) {
-      _errorMessage = error.toString();
+      _errorMessage = bleErrorMessage(error, settings);
       _connectedDeviceName = null;
       _setStatus(DeviceConnectionStatus.error);
     }
+  }
+
+  static String bleErrorMessage(Object error, AppSettings settings) {
+    if (error is TimeoutException) {
+      return 'No Bluetooth device named ${settings.preferredDeviceName} found. Use Browse devices to choose from nearby Bluetooth devices.';
+    }
+    return error.toString();
   }
 
   Future<void> disconnect() async {

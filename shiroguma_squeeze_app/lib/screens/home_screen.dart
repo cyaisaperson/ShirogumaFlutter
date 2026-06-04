@@ -163,9 +163,7 @@ class HomeScreen extends StatelessWidget {
                                 if (deviceState.isConnected) {
                                   DeviceStateScope.read(context).disconnect();
                                 } else {
-                                  DeviceStateScope.read(
-                                    context,
-                                  ).connect(settings);
+                                  _showDeviceBrowser(context, settings);
                                 }
                               },
                         icon: Icon(
@@ -174,7 +172,9 @@ class HomeScreen extends StatelessWidget {
                               : Icons.bluetooth_searching,
                         ),
                         label: Text(
-                          deviceState.isConnected ? 'Disconnect' : 'Connect',
+                          deviceState.isConnected
+                              ? 'Disconnect'
+                              : 'Browse devices',
                         ),
                       ),
                     ),
@@ -183,9 +183,11 @@ class HomeScreen extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: deviceState.isConnected
                             ? null
-                            : () => _showDeviceBrowser(context, settings),
-                        icon: const Icon(Icons.manage_search),
-                        label: const Text('Browse devices'),
+                            : () => DeviceStateScope.read(
+                                context,
+                              ).connect(settings),
+                        icon: const Icon(Icons.bluetooth_connected),
+                        label: const Text('Auto connect'),
                       ),
                     ),
                   ],
