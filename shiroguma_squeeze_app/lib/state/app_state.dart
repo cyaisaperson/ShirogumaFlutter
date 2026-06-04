@@ -17,7 +17,7 @@ class AppState extends ChangeNotifier {
     required AppSettings settings,
   }) : _patients = List.of(patients),
        _calibrations = List.of(calibrations),
-       _painEvents = List.unmodifiable(painEvents),
+       _painEvents = List.of(painEvents),
        _settings = settings;
 
   factory AppState.seeded() {
@@ -34,10 +34,13 @@ class AppState extends ChangeNotifier {
   final List<PainEvent> _painEvents;
   AppSettings _settings;
   static const _patientsStorageKey = 'shiroguma.patients.v1';
+  static const _settingsStorageKey = 'shiroguma.settings.v1';
+  static const _calibrationsStorageKey = 'shiroguma.calibrations.v1';
+  static const _painEventsStorageKey = 'shiroguma.pain_events.v1';
 
   List<Patient> get patients => List.unmodifiable(_patients);
   List<Calibration> get calibrations => List.unmodifiable(_calibrations);
-  List<PainEvent> get painEvents => _painEvents;
+  List<PainEvent> get painEvents => List.unmodifiable(_painEvents);
   AppSettings get settings => _settings;
 
   String get nextPatientCode {
@@ -93,17 +96,35 @@ class AppState extends ChangeNotifier {
     return List.unmodifiable(events);
   }
 
-  void setActivePatient(String patientId) {
+  Future<void> setActivePatient(String patientId) async {
     if (_patientById(patientId) == null ||
         _settings.activePatientId == patientId) {
       return;
     }
     _settings = _settings.copyWith(activePatientId: patientId);
     notifyListeners();
+    await _persistSettings();
   }
 
   Future<void> loadPersistedPatients() async {
+    await loadPersistedState();
+  }
+
+  Future<void> loadPersistedState() async {
     final preferences = await SharedPreferences.getInstance();
+    _loadSettings(preferences);
+    _loadPatients(preferences);
+    _loadCalibrations(preferences);
+    _loadPainEvents(preferences);
+    if (_settings.activePatientId != null &&
+        _patientById(_settings.activePatientId!) == null) {
+      _settings = _settings.copyWith(clearActivePatient: true);
+      await _persistSettings();
+    }
+    notifyListeners();
+  }
+
+  void _loadPatients(SharedPreferences preferences) {
     final encodedPatients = preferences.getString(_patientsStorageKey);
     if (encodedPatients == null) {
       return;
@@ -117,11 +138,50 @@ class AppState extends ChangeNotifier {
               Patient.fromJson(Map<String, Object?>.from(patientJson as Map)),
         ),
       );
-    if (_settings.activePatientId != null &&
-        _patientById(_settings.activePatientId!) == null) {
-      _settings = _settings.copyWith(clearActivePatient: true);
+  }
+
+  void _loadSettings(SharedPreferences preferences) {
+    final encodedSettings = preferences.getString(_settingsStorageKey);
+    if (encodedSettings == null) {
+      return;
     }
-    notifyListeners();
+    _settings = AppSettings.fromJson(
+      Map<String, Object?>.from(jsonDecode(encodedSettings) as Map),
+    );
+  }
+
+  void _loadCalibrations(SharedPreferences preferences) {
+    final encodedCalibrations = preferences.getString(_calibrationsStorageKey);
+    if (encodedCalibrations == null) {
+      return;
+    }
+    final decodedCalibrations =
+        jsonDecode(encodedCalibrations) as List<dynamic>;
+    _calibrations
+      ..clear()
+      ..addAll(
+        decodedCalibrations.map(
+          (calibrationJson) => Calibration.fromJson(
+            Map<String, Object?>.from(calibrationJson as Map),
+          ),
+        ),
+      );
+  }
+
+  void _loadPainEvents(SharedPreferences preferences) {
+    final encodedPainEvents = preferences.getString(_painEventsStorageKey);
+    if (encodedPainEvents == null) {
+      return;
+    }
+    final decodedPainEvents = jsonDecode(encodedPainEvents) as List<dynamic>;
+    _painEvents
+      ..clear()
+      ..addAll(
+        decodedPainEvents.map(
+          (eventJson) =>
+              PainEvent.fromJson(Map<String, Object?>.from(eventJson as Map)),
+        ),
+      );
   }
 
   bool isPatientCodeTaken(String patientCode, {String? exceptPatientId}) {
@@ -153,6 +213,7 @@ class AppState extends ChangeNotifier {
     _settings = _settings.copyWith(activePatientId: patient.id);
     notifyListeners();
     await _persistPatients();
+    await _persistSettings();
   }
 
   Future<void> updatePatient(Patient updatedPatient) async {
@@ -167,13 +228,13 @@ class AppState extends ChangeNotifier {
     await _persistPatients();
   }
 
-  void saveCalibration({
+  Future<void> saveCalibration({
     required String patientId,
     required double baselinePressure,
     required double mvsPressure,
     int samplesUsed = 0,
     String? notes,
-  }) {
+  }) async {
     _calibrations.removeWhere(
       (calibration) => calibration.patientId == patientId,
     );
@@ -190,6 +251,21 @@ class AppState extends ChangeNotifier {
       ),
     );
     notifyListeners();
+    await _persistCalibrations();
+  }
+
+  Future<void> savePainEvent(PainEvent event) async {
+    final index = _painEvents.indexWhere(
+      (existingEvent) => existingEvent.id == event.id,
+    );
+    if (index == -1) {
+      _painEvents.insert(0, event);
+    } else {
+      _painEvents[index] = event;
+    }
+    _painEvents.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    notifyListeners();
+    await _persistPainEvents();
   }
 
   Patient? _patientById(String patientId) {
@@ -207,5 +283,29 @@ class AppState extends ChangeNotifier {
       _patients.map((patient) => patient.toJson()).toList(),
     );
     await preferences.setString(_patientsStorageKey, encodedPatients);
+  }
+
+  Future<void> _persistSettings() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _settingsStorageKey,
+      jsonEncode(_settings.toJson()),
+    );
+  }
+
+  Future<void> _persistCalibrations() async {
+    final preferences = await SharedPreferences.getInstance();
+    final encodedCalibrations = jsonEncode(
+      _calibrations.map((calibration) => calibration.toJson()).toList(),
+    );
+    await preferences.setString(_calibrationsStorageKey, encodedCalibrations);
+  }
+
+  Future<void> _persistPainEvents() async {
+    final preferences = await SharedPreferences.getInstance();
+    final encodedPainEvents = jsonEncode(
+      _painEvents.map((event) => event.toJson()).toList(),
+    );
+    await preferences.setString(_painEventsStorageKey, encodedPainEvents);
   }
 }

@@ -17,6 +17,37 @@ class AppSettings {
   final String serviceUuid;
   final String characteristicUuid;
 
+  factory AppSettings.fromJson(Map<String, Object?> json) {
+    return AppSettings(
+      activePatientId: json['activePatientId'] as String?,
+      thresholdPercentAboveBaseline:
+          (json['thresholdPercentAboveBaseline'] as num?)?.toDouble() ?? 3,
+      peakWindowSize: json['peakWindowSize'] as int? ?? 10,
+      notableSwingPercentOfMvsRange:
+          (json['notableSwingPercentOfMvsRange'] as num?)?.toDouble() ?? 5,
+      preferredDeviceName:
+          json['preferredDeviceName'] as String? ?? 'PressureTX',
+      serviceUuid:
+          json['serviceUuid'] as String? ??
+          '12345678-1234-1234-1234-1234567890ab',
+      characteristicUuid:
+          json['characteristicUuid'] as String? ??
+          'abcd1234-5678-4321-abcd-1234567890ab',
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'activePatientId': activePatientId,
+      'thresholdPercentAboveBaseline': thresholdPercentAboveBaseline,
+      'peakWindowSize': peakWindowSize,
+      'notableSwingPercentOfMvsRange': notableSwingPercentOfMvsRange,
+      'preferredDeviceName': preferredDeviceName,
+      'serviceUuid': serviceUuid,
+      'characteristicUuid': characteristicUuid,
+    };
+  }
+
   AppSettings copyWith({
     String? activePatientId,
     bool clearActivePatient = false,

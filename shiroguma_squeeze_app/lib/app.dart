@@ -20,7 +20,7 @@ class _ShirogumaAppState extends State<ShirogumaApp> {
   @override
   void initState() {
     super.initState();
-    appState.loadPersistedPatients();
+    appState.loadPersistedState();
   }
 
   @override
