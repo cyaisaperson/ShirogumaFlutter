@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_state_scope.dart';
+import '../state/device_state.dart';
+import '../state/device_state_scope.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_card.dart';
 
@@ -16,6 +18,7 @@ class HomeScreen extends StatelessWidget {
     final activeEvents = appState.activePatientEvents;
     final latestEvent = activeEvents.isEmpty ? null : activeEvents.first;
     final settings = appState.settings;
+    final deviceState = DeviceStateScope.watch(context);
 
     return SafeArea(
       child: ListView(
@@ -101,9 +104,12 @@ class HomeScreen extends StatelessWidget {
                       border: Border.all(color: AppColors.coral, width: 3),
                     ),
                     alignment: Alignment.center,
-                    child: const Text(
-                      'Waiting',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+                    child: Text(
+                      deviceState.latestPressure == null
+                          ? 'Waiting'
+                          : '${deviceState.latestPressure!.toStringAsFixed(0)} mbar',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),
                 ),
@@ -117,13 +123,51 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: _SignalStatusTile(
                         label: 'Battery',
-                        value: 'Not connected',
+                        value: deviceState.batteryPercent == null
+                            ? 'Not connected'
+                            : '${deviceState.batteryPercent}%',
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+                _SignalStatusTile(
+                  label: 'Connection',
+                  value:
+                      '${deviceState.status.label}${deviceState.connectedDeviceName == null ? '' : ' - ${deviceState.connectedDeviceName}'}',
+                ),
+                if (deviceState.errorMessage != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    deviceState.errorMessage!,
+                    style: const TextStyle(color: AppColors.coralDark),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed:
+                      deviceState.status == DeviceConnectionStatus.scanning ||
+                          deviceState.status ==
+                              DeviceConnectionStatus.connecting
+                      ? null
+                      : () {
+                          if (deviceState.isConnected) {
+                            DeviceStateScope.read(context).disconnect();
+                          } else {
+                            DeviceStateScope.read(context).connect(settings);
+                          }
+                        },
+                  icon: Icon(
+                    deviceState.isConnected
+                        ? Icons.bluetooth_disabled
+                        : Icons.bluetooth_searching,
+                  ),
+                  label: Text(
+                    deviceState.isConnected ? 'Disconnect' : 'Connect',
+                  ),
                 ),
               ],
             ),
@@ -153,11 +197,14 @@ class HomeScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          const AppCard(
+          AppCard(
             child: _CardHeader(
               icon: Icons.bluetooth_disabled,
-              title: 'PressureTX disconnected',
-              subtitle: 'Live BLE connection is planned for Phase 11.',
+              title:
+                  '${settings.preferredDeviceName} ${deviceState.status.label}',
+              subtitle: deviceState.lastReceivedAt == null
+                  ? 'No live data received yet.'
+                  : 'Last update ${deviceState.lastReceivedAt!.toIso8601String()}',
             ),
           ),
         ],

@@ -5,6 +5,8 @@ import 'screens/patient_data_screen.dart';
 import 'screens/settings_screen.dart';
 import 'state/app_state.dart';
 import 'state/app_state_scope.dart';
+import 'state/device_state.dart';
+import 'state/device_state_scope.dart';
 import 'theme/app_theme.dart';
 
 class ShirogumaApp extends StatefulWidget {
@@ -16,6 +18,7 @@ class ShirogumaApp extends StatefulWidget {
 
 class _ShirogumaAppState extends State<ShirogumaApp> {
   late final AppState appState = AppState.seeded();
+  late final DeviceState deviceState = DeviceState();
 
   @override
   void initState() {
@@ -25,6 +28,7 @@ class _ShirogumaAppState extends State<ShirogumaApp> {
 
   @override
   void dispose() {
+    deviceState.dispose();
     appState.dispose();
     super.dispose();
   }
@@ -33,11 +37,14 @@ class _ShirogumaAppState extends State<ShirogumaApp> {
   Widget build(BuildContext context) {
     return AppStateScope(
       appState: appState,
-      child: MaterialApp(
-        title: 'Shiroguma Squeeze',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        home: const MainNavigationScreen(),
+      child: DeviceStateScope(
+        deviceState: deviceState,
+        child: MaterialApp(
+          title: 'Shiroguma Squeeze',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          home: const MainNavigationScreen(),
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_settings.dart';
 import '../state/app_state_scope.dart';
+import '../state/device_state_scope.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_card.dart';
 
@@ -11,6 +12,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appState = AppStateScope.watch(context);
+    final deviceState = DeviceStateScope.watch(context);
     final settings = appState.settings;
 
     return SafeArea(
@@ -85,7 +87,16 @@ class SettingsScreen extends StatelessWidget {
                   label: 'Battery characteristic UUID',
                   value: settings.batteryCharacteristicUuid,
                 ),
-                const _SettingRow(label: 'Connection', value: 'Disconnected'),
+                _SettingRow(
+                  label: 'Connection',
+                  value: deviceState.status.label,
+                ),
+                _SettingRow(
+                  label: 'Battery',
+                  value: deviceState.batteryPercent == null
+                      ? 'Not connected'
+                      : '${deviceState.batteryPercent}%',
+                ),
               ],
             ),
           ),

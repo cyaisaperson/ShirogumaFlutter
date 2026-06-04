@@ -5,6 +5,7 @@
 - Phase 8: Local persistence added with `shared_preferences`.
 - Phase 9: Active-patient CSV export added.
 - Phase 10: Settings and mode UI completed.
+- Phase 11: BLE connection service and live device status added.
 
 ## Modified Files
 - `lib/app.dart`
@@ -16,14 +17,23 @@
 - `lib/services/csv_export_service.dart`
 - `lib/screens/home_screen.dart`
 - `lib/screens/settings_screen.dart`
+- `lib/services/ble_service.dart`
+- `lib/state/device_state.dart`
+- `lib/state/device_state_scope.dart`
+- `android/app/src/main/AndroidManifest.xml`
+- `pubspec.yaml`
+- `pubspec.lock`
 - `test/app_state_test.dart`
+- `test/ble_service_test.dart`
 - `test/csv_export_service_test.dart`
 - `test/widget_test.dart`
 
 ## Current BLE Status
-- BLE is not implemented yet.
-- Home shows current mode, disconnected status, and battery placeholder.
-- Settings exposes Live BLE / SD Card Sync mode selection and BLE UUID values.
+- `flutter_blue_plus` is installed.
+- `BleService` can scan for `PressureTX`, connect, discover services, subscribe to pressure and battery notifications, and parse notification bytes.
+- Home shows current mode, connection status, connected device name when available, latest pressure, battery percentage, last update, and connect/disconnect control.
+- Settings exposes Live BLE / SD Card Sync mode selection, BLE UUID values, connection status, and battery status.
+- Android manifest includes Bluetooth scan/connect permissions.
 - Device contract from the continuation plan is noted for Phase 11:
   - Device name: `PressureTX`
   - Service UUID: `12345678-1234-1234-1234-1234567890ab`
@@ -43,7 +53,9 @@
 - Drift/SQLite has not been introduced yet.
 - CSV export writes to the system temp directory and reports the file path in a snackbar.
 - SD Card Sync UI is visible but intentionally disabled as `Coming later`.
-- BLE live data, live event detection, reconnection, and SD card sync are not implemented yet.
+- BLE hardware testing with the physical XIAO is still pending.
+- Runtime permission prompting may need refinement after Android hardware testing.
+- Live event detection, reconnection, and SD card sync are not implemented yet.
 
 ## Exact Next Step
-- Phase 11: Add `flutter_blue_plus` BLE connection and live device status for `PressureTX`, including Android permissions and live pressure/battery state reaching the UI.
+- Phase 12: Detect and save live BLE squeeze events only when Live BLE mode, an active patient, and valid calibration are available.

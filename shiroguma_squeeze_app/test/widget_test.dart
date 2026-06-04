@@ -227,6 +227,7 @@ void main() {
     await tester.pumpAndSettle();
     final openData = find.text('Open data');
     await tester.scrollUntilVisible(openData, 300);
+    await tester.pumpAndSettle();
     await tester.tap(openData);
     await tester.pumpAndSettle();
     expect(find.text('Patient Data'), findsOneWidget);
