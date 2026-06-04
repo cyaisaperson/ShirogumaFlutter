@@ -172,7 +172,7 @@ class DeviceState extends ChangeNotifier {
 
   static String bleErrorMessage(Object error, AppSettings settings) {
     if (error is TimeoutException) {
-      return 'No Bluetooth device named ${settings.preferredDeviceName} found. Use Browse devices to choose from nearby Bluetooth devices.';
+      return 'No Shiroguma Bluetooth device found. Auto connect looks for ${BleService.defaultDeviceName}; use Browse devices to choose from nearby Bluetooth devices.';
     }
     return error.toString();
   }

@@ -44,13 +44,24 @@ void main() {
     expect(unnamedDevice.displayName, 'Unknown device');
   });
 
+  test('normalizes advertised device names for matching', () {
+    expect(BleService.isMatchingDeviceName('PressureTX', 'PressureTX'), isTrue);
+    expect(
+      BleService.isMatchingDeviceName('PressureTX', 'Pressure TX'),
+      isTrue,
+    );
+    expect(BleService.isMatchingDeviceName('PressureTX', 'pressuretx'), isTrue);
+    expect(BleService.isMatchingDeviceName('Presure TX', 'PressureTX'), isTrue);
+  });
+
   test('formats scan timeout as a device search message', () {
     final message = DeviceState.bleErrorMessage(
       TimeoutException('Future not completed', const Duration(seconds: 8)),
       const AppSettings(),
     );
 
-    expect(message, contains('No Bluetooth device named PressureTX found'));
+    expect(message, contains('No Shiroguma Bluetooth device found'));
+    expect(message, contains('PressureTX'));
     expect(message, isNot(contains('TimeoutException')));
   });
 }

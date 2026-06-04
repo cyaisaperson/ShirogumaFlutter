@@ -25,8 +25,10 @@ class BleDiscoveredDevice {
 }
 
 class BleService {
+  static const defaultDeviceName = 'PressureTX';
+
   BleService({
-    this.deviceName = 'PressureTX',
+    this.deviceName = defaultDeviceName,
     this.serviceUuid = '12345678-1234-1234-1234-1234567890ab',
     this.pressureCharacteristicUuid = 'abcd1234-5678-4321-abcd-1234567890ab',
     this.batteryCharacteristicUuid = 'abcd1234-5678-4321-abcd-1234567890ac',
@@ -74,17 +76,21 @@ class BleService {
     Duration timeout = const Duration(seconds: 8),
   }) async {
     final completer = Completer<BluetoothDevice>();
+    final scanNames = <String>{
+      deviceName.trim(),
+      defaultDeviceName,
+    }.where((name) => name.isNotEmpty).toList();
     await _scanSubscription?.cancel();
     _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
       for (final result in results) {
         final name = _displayNameFor(result.device, result.advertisementData);
-        if (name == deviceName && !completer.isCompleted) {
+        if (isMatchingDeviceName(deviceName, name) && !completer.isCompleted) {
           completer.complete(result.device);
         }
       }
     });
 
-    await FlutterBluePlus.startScan(withNames: [deviceName], timeout: timeout);
+    await FlutterBluePlus.startScan(withNames: scanNames, timeout: timeout);
 
     try {
       return await completer.future.timeout(timeout);
@@ -192,6 +198,20 @@ class BleService {
       throw const FormatException('Battery notification must include 1 byte.');
     }
     return bytes.first.clamp(0, 100);
+  }
+
+  static bool isMatchingDeviceName(String expectedName, String advertisedName) {
+    final normalizedExpected = _normalizeDeviceName(expectedName);
+    final normalizedAdvertised = _normalizeDeviceName(advertisedName);
+    if (normalizedAdvertised.isEmpty) {
+      return false;
+    }
+    return normalizedAdvertised == normalizedExpected ||
+        normalizedAdvertised == _normalizeDeviceName(defaultDeviceName);
+  }
+
+  static String _normalizeDeviceName(String name) {
+    return name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   static BluetoothCharacteristic _findCharacteristic(
