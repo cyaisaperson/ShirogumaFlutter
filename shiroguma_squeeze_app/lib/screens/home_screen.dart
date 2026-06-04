@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../models/app_settings.dart';
+import '../services/ble_service.dart';
 import '../state/app_state_scope.dart';
 import '../state/device_state.dart';
 import '../state/device_state_scope.dart';
@@ -147,27 +149,46 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed:
-                      deviceState.status == DeviceConnectionStatus.scanning ||
-                          deviceState.status ==
-                              DeviceConnectionStatus.connecting
-                      ? null
-                      : () {
-                          if (deviceState.isConnected) {
-                            DeviceStateScope.read(context).disconnect();
-                          } else {
-                            DeviceStateScope.read(context).connect(settings);
-                          }
-                        },
-                  icon: Icon(
-                    deviceState.isConnected
-                        ? Icons.bluetooth_disabled
-                        : Icons.bluetooth_searching,
-                  ),
-                  label: Text(
-                    deviceState.isConnected ? 'Disconnect' : 'Connect',
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed:
+                            deviceState.status ==
+                                    DeviceConnectionStatus.scanning ||
+                                deviceState.status ==
+                                    DeviceConnectionStatus.connecting
+                            ? null
+                            : () {
+                                if (deviceState.isConnected) {
+                                  DeviceStateScope.read(context).disconnect();
+                                } else {
+                                  DeviceStateScope.read(
+                                    context,
+                                  ).connect(settings);
+                                }
+                              },
+                        icon: Icon(
+                          deviceState.isConnected
+                              ? Icons.bluetooth_disabled
+                              : Icons.bluetooth_searching,
+                        ),
+                        label: Text(
+                          deviceState.isConnected ? 'Disconnect' : 'Connect',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: deviceState.isConnected
+                            ? null
+                            : () => _showDeviceBrowser(context, settings),
+                        icon: const Icon(Icons.manage_search),
+                        label: const Text('Browse devices'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -217,6 +238,114 @@ class HomeScreen extends StatelessWidget {
     return date.year == now.year &&
         date.month == now.month &&
         date.day == now.day;
+  }
+}
+
+Future<void> _showDeviceBrowser(
+  BuildContext context,
+  AppSettings settings,
+) async {
+  final deviceState = DeviceStateScope.read(context);
+  await showDialog<void>(
+    context: context,
+    builder: (context) =>
+        _BleDeviceBrowserDialog(deviceState: deviceState, settings: settings),
+  );
+}
+
+class _BleDeviceBrowserDialog extends StatefulWidget {
+  const _BleDeviceBrowserDialog({
+    required this.deviceState,
+    required this.settings,
+  });
+
+  final DeviceState deviceState;
+  final AppSettings settings;
+
+  @override
+  State<_BleDeviceBrowserDialog> createState() =>
+      _BleDeviceBrowserDialogState();
+}
+
+class _BleDeviceBrowserDialogState extends State<_BleDeviceBrowserDialog> {
+  late final Stream<List<BleDiscoveredDevice>> devicesStream;
+
+  @override
+  void initState() {
+    super.initState();
+    devicesStream = widget.deviceState.browseDevices(widget.settings);
+  }
+
+  @override
+  void dispose() {
+    widget.deviceState.stopBrowsing();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Browse Bluetooth devices'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: StreamBuilder<List<BleDiscoveredDevice>>(
+          stream: devicesStream,
+          initialData: widget.deviceState.discoveredDevices,
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Text('Scan failed: ${snapshot.error}');
+            }
+            final devices = snapshot.data ?? const [];
+            if (devices.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Scanning for nearby Bluetooth devices...'),
+                  ],
+                ),
+              );
+            }
+            return ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 360),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: devices.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final device = devices[index];
+                  return ListTile(
+                    leading: const Icon(Icons.bluetooth),
+                    title: Text(device.displayName),
+                    subtitle: Text('${device.id} - RSSI ${device.rssi}'),
+                    onTap: () async {
+                      await widget.deviceState.stopBrowsing();
+                      if (!context.mounted) {
+                        return;
+                      }
+                      Navigator.of(context).pop();
+                      await widget.deviceState.connectToDiscoveredDevice(
+                        widget.settings,
+                        device,
+                      );
+                    },
+                  );
+                },
+              ),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
   }
 }
 

@@ -16,6 +16,7 @@ void main() {
     expect(find.text('Patients'), findsWidgets);
     expect(find.text('Data'), findsWidgets);
     expect(find.text('Settings'), findsWidgets);
+    expect(find.text('Browse devices'), findsOneWidget);
   });
 
   testWidgets('bottom navigation switches between primary pages', (

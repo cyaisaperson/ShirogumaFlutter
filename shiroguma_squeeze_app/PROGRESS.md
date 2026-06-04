@@ -31,7 +31,7 @@
 ## Current BLE Status
 - `flutter_blue_plus` is installed.
 - `BleService` can scan for `PressureTX`, connect, discover services, subscribe to pressure and battery notifications, and parse notification bytes.
-- Home shows current mode, connection status, connected device name when available, latest pressure, battery percentage, last update, and connect/disconnect control.
+- Home shows current mode, connection status, connected device name when available, latest pressure, battery percentage, last update, connect/disconnect control, and a Bluetooth device browser for choosing a scanned device manually.
 - Settings exposes Live BLE / SD Card Sync mode selection, BLE UUID values, connection status, and battery status.
 - Android manifest includes Bluetooth scan/connect permissions.
 - Device contract from the continuation plan is noted for Phase 11:

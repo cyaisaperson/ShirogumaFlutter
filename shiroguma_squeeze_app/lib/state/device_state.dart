@@ -34,6 +34,7 @@ class DeviceState extends ChangeNotifier {
   DateTime? _lastReceivedAt;
   String? _errorMessage;
   BleService? _bleService;
+  List<BleDiscoveredDevice> _discoveredDevices = const [];
 
   DeviceConnectionStatus get status => _status;
   String? get connectedDeviceName => _connectedDeviceName;
@@ -41,6 +42,8 @@ class DeviceState extends ChangeNotifier {
   int? get batteryPercent => _batteryPercent;
   DateTime? get lastReceivedAt => _lastReceivedAt;
   String? get errorMessage => _errorMessage;
+  List<BleDiscoveredDevice> get discoveredDevices =>
+      List.unmodifiable(_discoveredDevices);
   bool get isConnected => _status == DeviceConnectionStatus.connected;
 
   Future<void> connect(AppSettings settings) async {
@@ -90,10 +93,86 @@ class DeviceState extends ChangeNotifier {
     }
   }
 
+  Stream<List<BleDiscoveredDevice>> browseDevices(AppSettings settings) {
+    _errorMessage = null;
+    _setStatus(DeviceConnectionStatus.scanning);
+    final service = BleService(
+      deviceName: settings.preferredDeviceName,
+      serviceUuid: settings.serviceUuid,
+      pressureCharacteristicUuid: settings.characteristicUuid,
+      batteryCharacteristicUuid: settings.batteryCharacteristicUuid,
+    );
+    _bleService = service;
+    return service.scanNearbyDevices().map((devices) {
+      _discoveredDevices = devices;
+      notifyListeners();
+      return devices;
+    });
+  }
+
+  Future<void> stopBrowsing() async {
+    await _bleService?.stopScan();
+    if (_status == DeviceConnectionStatus.scanning) {
+      _setStatus(DeviceConnectionStatus.disconnected);
+    }
+  }
+
+  Future<void> connectToDiscoveredDevice(
+    AppSettings settings,
+    BleDiscoveredDevice discoveredDevice,
+  ) async {
+    if (_status == DeviceConnectionStatus.connecting ||
+        _status == DeviceConnectionStatus.connected) {
+      return;
+    }
+    _setStatus(DeviceConnectionStatus.connecting);
+    _errorMessage = null;
+    final service =
+        _bleService ??
+        BleService(
+          deviceName: settings.preferredDeviceName,
+          serviceUuid: settings.serviceUuid,
+          pressureCharacteristicUuid: settings.characteristicUuid,
+          batteryCharacteristicUuid: settings.batteryCharacteristicUuid,
+        );
+    _bleService = service;
+    try {
+      await service.connectToDiscoveredDevice(
+        discoveredDevice: discoveredDevice,
+        onPressure: (pressure) {
+          _latestPressure = pressure;
+          _lastReceivedAt = DateTime.now();
+          notifyListeners();
+        },
+        onBattery: (batteryPercent) {
+          _batteryPercent = batteryPercent;
+          _lastReceivedAt = DateTime.now();
+          notifyListeners();
+        },
+        onConnectionState: (state) {
+          if (state == BluetoothConnectionState.connected) {
+            _connectedDeviceName = discoveredDevice.displayName;
+            _setStatus(DeviceConnectionStatus.connected);
+          } else if (state == BluetoothConnectionState.disconnected) {
+            _connectedDeviceName = null;
+            _setStatus(DeviceConnectionStatus.disconnected);
+          }
+        },
+      );
+      _connectedDeviceName = discoveredDevice.displayName;
+      _setStatus(DeviceConnectionStatus.connected);
+    } catch (error) {
+      _errorMessage = error.toString();
+      _connectedDeviceName = null;
+      _setStatus(DeviceConnectionStatus.error);
+    }
+  }
+
   Future<void> disconnect() async {
     await _bleService?.disconnect();
     _bleService = null;
     _connectedDeviceName = null;
+    _discoveredDevices = const [];
     _setStatus(DeviceConnectionStatus.disconnected);
   }
 

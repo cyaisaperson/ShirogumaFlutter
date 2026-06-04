@@ -23,4 +23,20 @@ void main() {
     expect(BleService.parseBatteryBytes([150]), 100);
     expect(() => BleService.parseBatteryBytes([]), throwsFormatException);
   });
+
+  test('normalizes blank discovered device names', () {
+    final namedDevice = BleDiscoveredDevice(
+      id: 'AA:BB:CC',
+      name: 'PressureTX',
+      rssi: -42,
+    );
+    final unnamedDevice = BleDiscoveredDevice(
+      id: '11:22:33',
+      name: '',
+      rssi: -80,
+    );
+
+    expect(namedDevice.displayName, 'PressureTX');
+    expect(unnamedDevice.displayName, 'Unknown device');
+  });
 }

@@ -3,6 +3,27 @@ import 'dart:typed_data';
 
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+class BleDiscoveredDevice {
+  const BleDiscoveredDevice({
+    required this.id,
+    required this.name,
+    required this.rssi,
+    this.device,
+  });
+
+  final String id;
+  final String name;
+  final int rssi;
+  final BluetoothDevice? device;
+
+  String get displayName {
+    if (name.trim().isEmpty) {
+      return 'Unknown device';
+    }
+    return name.trim();
+  }
+}
+
 class BleService {
   BleService({
     this.deviceName = 'PressureTX',
@@ -23,6 +44,31 @@ class BleService {
   StreamSubscription<List<int>>? _pressureSubscription;
   StreamSubscription<List<int>>? _batterySubscription;
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
+
+  Stream<List<BleDiscoveredDevice>> scanNearbyDevices({
+    Duration timeout = const Duration(seconds: 10),
+  }) async* {
+    await FlutterBluePlus.startScan(timeout: timeout);
+    yield* FlutterBluePlus.scanResults.map((results) {
+      final discovered = <String, BleDiscoveredDevice>{};
+      for (final result in results) {
+        final name = _displayNameFor(result.device, result.advertisementData);
+        discovered[result.device.remoteId.str] = BleDiscoveredDevice(
+          id: result.device.remoteId.str,
+          name: name,
+          rssi: result.rssi,
+          device: result.device,
+        );
+      }
+      final devices = discovered.values.toList()
+        ..sort((a, b) => b.rssi.compareTo(a.rssi));
+      return devices;
+    });
+  }
+
+  Future<void> stopScan() async {
+    await FlutterBluePlus.stopScan();
+  }
 
   Future<BluetoothDevice> scanForDevice({
     Duration timeout = const Duration(seconds: 8),
@@ -55,6 +101,36 @@ class BleService {
     void Function(BluetoothConnectionState state)? onConnectionState,
   }) async {
     final device = await scanForDevice();
+    await connectToDevice(
+      device,
+      onPressure: onPressure,
+      onBattery: onBattery,
+      onConnectionState: onConnectionState,
+    );
+  }
+
+  Future<void> connectToDiscoveredDevice({
+    required BleDiscoveredDevice discoveredDevice,
+    required void Function(double pressure) onPressure,
+    required void Function(int batteryPercent) onBattery,
+    void Function(BluetoothConnectionState state)? onConnectionState,
+  }) async {
+    final device =
+        discoveredDevice.device ?? BluetoothDevice.fromId(discoveredDevice.id);
+    await connectToDevice(
+      device,
+      onPressure: onPressure,
+      onBattery: onBattery,
+      onConnectionState: onConnectionState,
+    );
+  }
+
+  Future<void> connectToDevice(
+    BluetoothDevice device, {
+    required void Function(double pressure) onPressure,
+    required void Function(int batteryPercent) onBattery,
+    void Function(BluetoothConnectionState state)? onConnectionState,
+  }) async {
     _device = device;
     _connectionSubscription = device.connectionState.listen(onConnectionState);
     await device.connect(
