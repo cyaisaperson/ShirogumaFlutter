@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/calibration.dart';
 import '../models/pain_event.dart';
 import '../models/patient.dart';
+import '../services/csv_export_service.dart';
 import '../state/app_state_scope.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_card.dart';
@@ -122,9 +123,17 @@ class _PatientDataContent extends StatelessWidget {
         _CalibrationCard(patientId: patient.id, calibration: calibration),
         const SizedBox(height: 16),
         FilledButton.icon(
-          onPressed: () {
+          onPressed: () async {
+            final exportedFile = await CsvExportService.exportPatientCsv(
+              patient: patient,
+              calibration: calibration,
+              painEvents: events,
+            );
+            if (!context.mounted) {
+              return;
+            }
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('CSV export will be added later.')),
+              SnackBar(content: Text('CSV exported to ${exportedFile.path}')),
             );
           },
           icon: const Icon(Icons.download),

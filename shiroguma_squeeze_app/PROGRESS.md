@@ -3,6 +3,7 @@
 ## Completed Phases
 - Phases 1-7: Previously completed.
 - Phase 8: Local persistence added with `shared_preferences`.
+- Phase 9: Active-patient CSV export added.
 
 ## Modified Files
 - `lib/app.dart`
@@ -11,7 +12,9 @@
 - `lib/models/pain_event.dart`
 - `lib/state/app_state.dart`
 - `lib/state/mock_data.dart`
+- `lib/services/csv_export_service.dart`
 - `test/app_state_test.dart`
+- `test/csv_export_service_test.dart`
 
 ## Current BLE Status
 - BLE is not implemented yet.
@@ -31,8 +34,8 @@
 
 ## Known Issues
 - Drift/SQLite has not been introduced yet.
-- CSV export is still a placeholder and is the next planned phase.
+- CSV export writes to the system temp directory and reports the file path in a snackbar.
 - BLE live data, live event detection, reconnection, and SD card sync are not implemented yet.
 
 ## Exact Next Step
-- Phase 9: Implement active-patient-only CSV export from the Patient Data page, including patient profile, calibration values, pain events, and CSV headers for empty history.
+- Phase 10: Complete Settings and mode UI for Live BLE vs SD Card Sync, BLE constants, detection settings, storage information, reset confirmation, and placeholders/status labels.
