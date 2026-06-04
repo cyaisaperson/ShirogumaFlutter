@@ -106,6 +106,12 @@ class AppState extends ChangeNotifier {
     await _persistSettings();
   }
 
+  Future<void> updateSettings(AppSettings settings) async {
+    _settings = settings;
+    notifyListeners();
+    await _persistSettings();
+  }
+
   Future<void> loadPersistedPatients() async {
     await loadPersistedState();
   }
@@ -266,6 +272,27 @@ class AppState extends ChangeNotifier {
     _painEvents.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     notifyListeners();
     await _persistPainEvents();
+  }
+
+  Future<void> clearLocalDatabase() async {
+    final preferences = await SharedPreferences.getInstance();
+    await Future.wait([
+      preferences.remove(_patientsStorageKey),
+      preferences.remove(_settingsStorageKey),
+      preferences.remove(_calibrationsStorageKey),
+      preferences.remove(_painEventsStorageKey),
+    ]);
+    _patients
+      ..clear()
+      ..addAll(MockData.patients());
+    _calibrations
+      ..clear()
+      ..addAll(MockData.calibrations());
+    _painEvents
+      ..clear()
+      ..addAll(MockData.painEvents());
+    _settings = MockData.settings();
+    notifyListeners();
   }
 
   Patient? _patientById(String patientId) {

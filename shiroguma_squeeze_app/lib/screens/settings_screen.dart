@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/app_settings.dart';
 import '../state/app_state_scope.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_card.dart';
@@ -19,10 +20,49 @@ class SettingsScreen extends StatelessWidget {
           Text('Settings', style: Theme.of(context).textTheme.displaySmall),
           const SizedBox(height: 6),
           const Text(
-            'Local app configuration placeholders for the next phases.',
+            'Device, detection, sync, and local storage controls.',
             style: TextStyle(color: AppColors.mutedText),
           ),
           const SizedBox(height: 20),
+          AppCard(
+            tone: AppCardTone.sand,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Data mode',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                SegmentedButton<DataMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: DataMode.liveBle,
+                      label: Text('Live BLE'),
+                      icon: Icon(Icons.bluetooth),
+                    ),
+                    ButtonSegment(
+                      value: DataMode.sdCard,
+                      label: Text('SD Card Sync'),
+                      icon: Icon(Icons.sd_card),
+                    ),
+                  ],
+                  selected: {settings.dataMode},
+                  onSelectionChanged: (selection) {
+                    AppStateScope.read(context).updateSettings(
+                      settings.copyWith(dataMode: selection.first),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                _SettingRow(
+                  label: 'Current mode',
+                  value: settings.dataMode.label,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           AppCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -38,10 +78,14 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 _SettingRow(label: 'Service UUID', value: settings.serviceUuid),
                 _SettingRow(
-                  label: 'Characteristic UUID',
+                  label: 'Pressure characteristic UUID',
                   value: settings.characteristicUuid,
                 ),
-                const _SettingRow(label: 'Connection', value: 'Placeholder'),
+                _SettingRow(
+                  label: 'Battery characteristic UUID',
+                  value: settings.batteryCharacteristicUuid,
+                ),
+                const _SettingRow(label: 'Connection', value: 'Disconnected'),
               ],
             ),
           ),
@@ -66,6 +110,10 @@ class SettingsScreen extends StatelessWidget {
                   value: '${settings.peakWindowSize} samples',
                 ),
                 _SettingRow(
+                  label: 'Stable window',
+                  value: '${settings.stableWindowSize} samples',
+                ),
+                _SettingRow(
                   label: 'Notable swing',
                   value:
                       '${settings.notableSwingPercentOfMvsRange.toStringAsFixed(0)}% of MVS range',
@@ -83,7 +131,10 @@ class SettingsScreen extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 12),
-                _SettingRow(label: 'Database', value: 'In-memory mock data'),
+                const _SettingRow(
+                  label: 'Database',
+                  value: 'Local JSON storage',
+                ),
                 _SettingRow(
                   label: 'Patients',
                   value: appState.patients.length.toString(),
@@ -92,12 +143,79 @@ class SettingsScreen extends StatelessWidget {
                   label: 'Pain events',
                   value: appState.painEvents.length.toString(),
                 ),
+                _SettingRow(
+                  label: 'Active patient',
+                  value: appState.activePatient?.name ?? 'None',
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _confirmClearDatabase(context),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Clear local database'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          AppCard(
+            tone: AppCardTone.sand,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SD Card Sync',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                _SettingRow(
+                  label: 'Last sync',
+                  value: settings.lastSdSyncAt == null
+                      ? 'Never'
+                      : settings.lastSdSyncAt!.toIso8601String(),
+                ),
+                FilledButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.sync_disabled),
+                  label: const Text('Coming later'),
+                ),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmClearDatabase(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear local database?'),
+        content: const Text(
+          'This clears locally saved patients, calibrations, events, and settings, then reloads the starter mock data.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Clear data'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+    await AppStateScope.read(context).clearLocalDatabase();
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Local database cleared.')));
   }
 }
 

@@ -15,6 +15,7 @@ class HomeScreen extends StatelessWidget {
     final activePatient = appState.activePatient;
     final activeEvents = appState.activePatientEvents;
     final latestEvent = activeEvents.isEmpty ? null : activeEvents.first;
+    final settings = appState.settings;
 
     return SafeArea(
       child: ListView(
@@ -106,6 +107,24 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SignalStatusTile(
+                        label: 'Mode',
+                        value: settings.dataMode.label,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: _SignalStatusTile(
+                        label: 'Battery',
+                        value: 'Not connected',
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -137,9 +156,8 @@ class HomeScreen extends StatelessWidget {
           const AppCard(
             child: _CardHeader(
               icon: Icons.bluetooth_disabled,
-              title: 'PressureTX placeholder',
-              subtitle:
-                  'BLE connection will be added after local UI is stable.',
+              title: 'PressureTX disconnected',
+              subtitle: 'Live BLE connection is planned for Phase 11.',
             ),
           ),
         ],
@@ -152,6 +170,32 @@ class HomeScreen extends StatelessWidget {
     return date.year == now.year &&
         date.month == now.month &&
         date.day == now.day;
+  }
+}
+
+class _SignalStatusTile extends StatelessWidget {
+  const _SignalStatusTile({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.sand,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: AppColors.mutedText)),
+          const SizedBox(height: 6),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
+        ],
+      ),
+    );
   }
 }
 

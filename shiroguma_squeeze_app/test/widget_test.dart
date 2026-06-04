@@ -37,6 +37,62 @@ void main() {
     expect(find.text('Device settings'), findsOneWidget);
   });
 
+  testWidgets('settings page exposes mode storage and sync controls', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Anya Rahimi'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Data mode'), findsOneWidget);
+    expect(find.text('Live BLE'), findsWidgets);
+    expect(find.text('SD Card Sync'), findsWidgets);
+    await tester.tap(find.text('SD Card Sync').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Battery characteristic UUID'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Stable window'), 200);
+    await tester.pumpAndSettle();
+    expect(find.text('Stable window'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Local JSON storage'), 200);
+    await tester.pumpAndSettle();
+    expect(find.text('Local JSON storage'), findsOneWidget);
+    expect(find.text('Active patient'), findsOneWidget);
+    expect(find.text('Anya Rahimi'), findsWidgets);
+    await tester.scrollUntilVisible(find.text('Coming later'), 200);
+    await tester.pumpAndSettle();
+    expect(find.text('Coming later'), findsOneWidget);
+    expect(find.text('Clear local database'), findsOneWidget);
+
+    await tester.tap(find.text('Home').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mode'), findsOneWidget);
+    expect(find.text('SD Card Sync'), findsWidgets);
+    expect(find.text('Battery'), findsOneWidget);
+  });
+
+  testWidgets('clear local database asks for confirmation', (tester) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Settings').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Clear local database'), 300);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Clear local database'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Clear local database?'), findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
+    expect(find.text('Clear data'), findsOneWidget);
+  });
+
   testWidgets('patients page displays mock patients', (tester) async {
     await tester.pumpWidget(const ShirogumaApp());
 

@@ -118,7 +118,12 @@ class _PatientDataContent extends StatelessWidget {
           onSelectEvent: onSelectEvent,
         ),
         const SizedBox(height: 16),
-        _SelectedEventCard(event: selectedEvent),
+        _SelectedEventCard(
+          event: selectedEvent,
+          liveSavingStatus: calibration == null
+              ? 'Blocked: calibration required'
+              : 'Blocked: BLE disconnected',
+        ),
         const SizedBox(height: 16),
         _CalibrationCard(patientId: patient.id, calibration: calibration),
         const SizedBox(height: 16),
@@ -984,9 +989,13 @@ class _WeekdayLabel extends StatelessWidget {
 }
 
 class _SelectedEventCard extends StatelessWidget {
-  const _SelectedEventCard({required this.event});
+  const _SelectedEventCard({
+    required this.event,
+    required this.liveSavingStatus,
+  });
 
   final PainEvent? event;
+  final String liveSavingStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -1003,6 +1012,7 @@ class _SelectedEventCard extends StatelessWidget {
             ).textTheme.titleMedium?.copyWith(color: Colors.white),
           ),
           const SizedBox(height: 14),
+          _DetailLine(label: 'Live saving', value: liveSavingStatus),
           if (event == null)
             const Text(
               'Tap a timeline bubble to inspect event details.',
