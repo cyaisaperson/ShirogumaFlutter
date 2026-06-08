@@ -16,7 +16,14 @@ void main() {
     expect(find.text('Patients'), findsWidgets);
     expect(find.text('Data'), findsWidgets);
     expect(find.text('Settings'), findsWidgets);
+    expect(find.text('Bluetooth Disconnected'), findsOneWidget);
+    expect(find.text('Live'), findsOneWidget);
+    expect(find.text('Battery --'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('DEVICE'), 300);
+    await tester.pumpAndSettle();
     expect(find.text('Browse devices'), findsOneWidget);
+    expect(find.text('DEVICE'), findsOneWidget);
+    expect(find.text('XIAO nRF52840'), findsOneWidget);
   });
 
   testWidgets('bottom navigation switches between primary pages', (
@@ -74,9 +81,11 @@ void main() {
     await tester.tap(find.text('Home').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Mode'), findsOneWidget);
-    expect(find.text('SD Card Sync'), findsWidgets);
-    expect(find.text('Battery'), findsOneWidget);
+    expect(find.text('SD'), findsOneWidget);
+    expect(find.text('Battery --'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('DEVICE'), 300);
+    await tester.pumpAndSettle();
+    expect(find.text('DEVICE'), findsOneWidget);
   });
 
   testWidgets('clear local database asks for confirmation', (tester) async {

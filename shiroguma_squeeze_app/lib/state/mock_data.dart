@@ -11,6 +11,11 @@ class MockData {
     return DateTime(now.year, now.month, now.day);
   }
 
+  static int get _currentWeekSampleOffset {
+    final weekday = _now.weekday;
+    return weekday == DateTime.monday ? -1 : 1;
+  }
+
   static List<Patient> patients() {
     final createdAt = _today.subtract(const Duration(days: 21));
     return [
@@ -172,7 +177,7 @@ class MockData {
       _event(
         id: 'event-marcus-week-1',
         patientId: 'patient-marcus',
-        dayOffset: 3,
+        dayOffset: _currentWeekSampleOffset,
         hour: 14,
         minute: 10,
         painLevel: 5,

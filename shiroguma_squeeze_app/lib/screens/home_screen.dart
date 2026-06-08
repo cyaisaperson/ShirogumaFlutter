@@ -21,21 +21,29 @@ class HomeScreen extends StatelessWidget {
     final latestEvent = activeEvents.isEmpty ? null : activeEvents.first;
     final settings = appState.settings;
     final deviceState = DeviceStateScope.watch(context);
+    final batteryLabel = deviceState.batteryPercent == null
+        ? 'Battery --'
+        : 'Battery ${deviceState.batteryPercent}%';
+    final modeLabel = settings.dataMode == DataMode.liveBle ? 'Live' : 'SD';
+    final connectionLabel = 'Bluetooth ${deviceState.status.label}';
+    final signalState = deviceState.isConnected ? 'streaming' : 'standby';
+    final rawValue = deviceState.latestPressure == null
+        ? '--'
+        : '${deviceState.latestPressure!.toStringAsFixed(0)} mbar';
+    final sasValue = latestEvent == null
+        ? '--'
+        : latestEvent.painLevel.toString();
 
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Text(
-            'Shiroguma Squeeze',
-            style: Theme.of(context).textTheme.displaySmall,
+          _HomeHeader(
+            batteryLabel: batteryLabel,
+            connectionLabel: connectionLabel,
+            modeLabel: modeLabel,
           ),
-          const SizedBox(height: 6),
-          const Text(
-            'Doctor-facing pain monitoring dashboard',
-            style: TextStyle(color: AppColors.mutedText),
-          ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           AppCard(
             tone: activePatient == null ? AppCardTone.sand : AppCardTone.dark,
             child: activePatient == null
@@ -91,9 +99,18 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _CardHeader(
-                  icon: Icons.radio_button_checked,
-                  title: 'Live Signal',
+                Row(
+                  children: [
+                    Text(
+                      'LIVE SIGNAL',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        letterSpacing: 0.8,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Spacer(),
+                    _InlineStateChip(label: signalState),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 Center(
@@ -119,36 +136,65 @@ class HomeScreen extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: _SignalStatusTile(
-                        label: 'Mode',
-                        value: settings.dataMode.label,
-                      ),
+                      child: _SignalMetric(label: 'Raw', value: rawValue),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: _SignalStatusTile(
-                        label: 'Battery',
-                        value: deviceState.batteryPercent == null
-                            ? 'Not connected'
-                            : '${deviceState.batteryPercent}%',
-                      ),
+                      child: _SignalMetric(label: 'SAS', value: sasValue),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: _SignalMetric(label: 'Rate', value: '50 Hz'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                _SignalStatusTile(
-                  label: 'Connection',
-                  value:
-                      '${deviceState.status.label}${deviceState.connectedDeviceName == null ? '' : ' - ${deviceState.connectedDeviceName}'}',
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'DEVICE',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    letterSpacing: 0.8,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
+                const SizedBox(height: 12),
+                Text(
+                  'Squeeze·01',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'XIAO nRF52840',
+                  style: TextStyle(color: AppColors.mutedText),
+                ),
+                const SizedBox(height: 14),
+                _DeviceInfoRow(
+                  label: 'Battery',
+                  value: batteryLabel.replaceFirst('Battery ', ''),
+                ),
+                const SizedBox(height: 6),
+                const _DeviceInfoRow(label: 'Rate', value: '50 Hz'),
+                if (deviceState.lastReceivedAt != null) ...[
+                  const SizedBox(height: 6),
+                  _DeviceInfoRow(
+                    label: 'Last update',
+                    value: deviceState.lastReceivedAt!.toIso8601String(),
+                  ),
+                ],
                 if (deviceState.errorMessage != null) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   Text(
                     deviceState.errorMessage!,
                     style: const TextStyle(color: AppColors.coralDark),
                   ),
                 ],
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 Row(
                   children: [
                     Expanded(
@@ -218,17 +264,6 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          AppCard(
-            child: _CardHeader(
-              icon: Icons.bluetooth_disabled,
-              title:
-                  '${settings.preferredDeviceName} ${deviceState.status.label}',
-              subtitle: deviceState.lastReceivedAt == null
-                  ? 'No live data received yet.'
-                  : 'Last update ${deviceState.lastReceivedAt!.toIso8601String()}',
-            ),
           ),
         ],
       ),
@@ -351,28 +386,190 @@ class _BleDeviceBrowserDialogState extends State<_BleDeviceBrowserDialog> {
   }
 }
 
-class _SignalStatusTile extends StatelessWidget {
-  const _SignalStatusTile({required this.label, required this.value});
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({
+    required this.batteryLabel,
+    required this.connectionLabel,
+    required this.modeLabel,
+  });
+
+  final String batteryLabel;
+  final String connectionLabel;
+  final String modeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Shiroguma Squeeze',
+          style: Theme.of(context).textTheme.displaySmall,
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Doctor-facing pain monitoring dashboard',
+          style: TextStyle(color: AppColors.mutedText),
+        ),
+      ],
+    );
+
+    final chips = Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _StatusChip(
+          icon: Icons.battery_full,
+          label: batteryLabel,
+          active: !batteryLabel.endsWith('--'),
+        ),
+        _StatusChip(
+          icon: Icons.bluetooth,
+          label: connectionLabel,
+          active: connectionLabel.endsWith('Connected'),
+        ),
+        _StatusChip(icon: Icons.circle, label: modeLabel, active: true),
+      ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 560) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              titleBlock,
+              const SizedBox(height: 12),
+              Align(alignment: Alignment.centerRight, child: chips),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: titleBlock),
+            const SizedBox(width: 16),
+            Flexible(child: chips),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({
+    required this.icon,
+    required this.label,
+    required this.active,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = active ? AppColors.coralDark : AppColors.mutedText;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: active ? AppColors.coralSoft : AppColors.sand,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: active ? AppColors.coral : AppColors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: foreground),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: foreground,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineStateChip extends StatelessWidget {
+  const _InlineStateChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = label == 'streaming';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: active ? AppColors.coralSoft : AppColors.sand,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: active ? AppColors.coralDark : AppColors.mutedText,
+          fontWeight: FontWeight.w800,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+class _SignalMetric extends StatelessWidget {
+  const _SignalMetric({required this.label, required this.value});
 
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.sand,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(color: AppColors.mutedText)),
-          const SizedBox(height: 6),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: AppColors.mutedText, fontSize: 12),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+        ),
+      ],
+    );
+  }
+}
+
+class _DeviceInfoRow extends StatelessWidget {
+  const _DeviceInfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text('$label:', style: const TextStyle(color: AppColors.mutedText)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -414,40 +611,6 @@ class _EmptyActivePatient extends StatelessWidget {
         ),
         SizedBox(height: 8),
         Text('Patient-specific data appears here after selection.'),
-      ],
-    );
-  }
-}
-
-class _CardHeader extends StatelessWidget {
-  const _CardHeader({required this.icon, required this.title, this.subtitle});
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
-              if (subtitle != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  subtitle!,
-                  style: const TextStyle(color: AppColors.mutedText),
-                ),
-              ],
-            ],
-          ),
-        ),
       ],
     );
   }
