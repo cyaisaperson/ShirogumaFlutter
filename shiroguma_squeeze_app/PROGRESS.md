@@ -9,6 +9,7 @@
 - Phase 12: Live BLE squeeze detection and active-patient event saving added.
 - Phase 13: BLE reconnect attempts and stale battery status added.
 - Phase 14: SD Card Sync placeholder architecture added.
+- Phase 15: Live MVS calibration flow added with manual entry retained as fallback.
 
 ## Modified Files
 - `lib/app.dart`
@@ -44,6 +45,7 @@
 - Home shows current mode, connection status, connected device name when available, latest pressure, battery percentage, last update, connect/disconnect control, and a Bluetooth device browser for choosing a scanned device manually.
 - Live BLE pressure samples are buffered into squeeze segments, normalized with the active patient calibration, and saved as `live_ble` pain events only when saving is eligible.
 - Unexpected disconnects move the app into `Reconnecting`, retry with the last known device/settings while the app is open, and mark battery data stale after 30 seconds without updates.
+- Live MVS calibration can record pressure samples from the BLE stream, evaluate baseline stability, compute MVS, and save valid calibration values to the active patient.
 - Settings exposes Live BLE / SD Card Sync mode selection, BLE UUID values, connection status, and battery status.
 - Android manifest includes Bluetooth scan/connect permissions.
 - Device contract from the continuation plan is noted for Phase 11:
@@ -69,6 +71,7 @@
 - BLE hardware testing with the physical XIAO is still pending.
 - Runtime permission prompting may need refinement after Android hardware testing.
 - Full SD card log transfer/parsing/import is not implemented yet.
+- Live MVS calibration depends on an active BLE pressure stream; if the device is disconnected, recording will collect no samples and fail validation.
 
 ## Exact Next Step
-- All planned phases in `codex_continue_after_phase7.md` are complete. Next work should be driven by hardware testing feedback or a new implementation plan.
+- Phase 16: Compact Header Battery Text.

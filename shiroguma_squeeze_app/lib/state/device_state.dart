@@ -8,6 +8,7 @@ import '../models/calibration.dart';
 import '../models/pain_event.dart';
 import '../services/ble_service.dart';
 import '../services/live_squeeze_detector.dart';
+import '../services/pressure_processing_service.dart';
 
 enum DeviceConnectionStatus {
   disconnected,
@@ -29,11 +30,28 @@ enum DeviceConnectionStatus {
   }
 }
 
+class LiveCalibrationResult {
+  const LiveCalibrationResult({
+    required this.valid,
+    required this.baselinePressure,
+    required this.mvsPressure,
+    required this.samplesUsed,
+    required this.reason,
+  });
+
+  final bool valid;
+  final double baselinePressure;
+  final double mvsPressure;
+  final int samplesUsed;
+  final String reason;
+}
+
 class DeviceState extends ChangeNotifier {
   DeviceState();
 
   static const batteryStaleAfter = Duration(seconds: 30);
   static const reconnectDelay = Duration(seconds: 3);
+  static const liveCalibrationBaselineSamples = 20;
 
   DeviceConnectionStatus _status = DeviceConnectionStatus.disconnected;
   String? _connectedDeviceName;
@@ -56,6 +74,9 @@ class DeviceState extends ChangeNotifier {
   String? _liveDetectorKey;
   PainEvent? _lastRecordedLiveEvent;
   String? _liveRecordingMessage;
+  bool _isLiveCalibrationRecording = false;
+  List<double> _liveCalibrationSamples = const [];
+  LiveCalibrationResult? _liveCalibrationResult;
 
   DeviceConnectionStatus get status => _status;
   String? get connectedDeviceName => _connectedDeviceName;
@@ -74,6 +95,9 @@ class DeviceState extends ChangeNotifier {
   );
   PainEvent? get lastRecordedLiveEvent => _lastRecordedLiveEvent;
   String? get liveRecordingMessage => _liveRecordingMessage;
+  bool get isLiveCalibrationRecording => _isLiveCalibrationRecording;
+  int get liveCalibrationSampleCount => _liveCalibrationSamples.length;
+  LiveCalibrationResult? get liveCalibrationResult => _liveCalibrationResult;
   String get liveSavingStatus {
     if (_liveSettings.dataMode != DataMode.liveBle) {
       return 'Blocked: SD Card mode';
@@ -272,10 +296,37 @@ class DeviceState extends ChangeNotifier {
     await _attemptReconnect();
   }
 
+  void startLiveCalibration() {
+    _isLiveCalibrationRecording = true;
+    _liveCalibrationSamples = [];
+    _liveCalibrationResult = null;
+    notifyListeners();
+  }
+
+  LiveCalibrationResult stopLiveCalibration() {
+    _isLiveCalibrationRecording = false;
+    final result = calculateLiveCalibration(_liveCalibrationSamples);
+    _liveCalibrationResult = result;
+    notifyListeners();
+    return result;
+  }
+
+  void resetLiveCalibration() {
+    _isLiveCalibrationRecording = false;
+    _liveCalibrationSamples = [];
+    _liveCalibrationResult = null;
+    notifyListeners();
+  }
+
   void _handleLivePressure(double pressure) {
     final timestamp = DateTime.now();
     _latestPressure = pressure;
     _lastReceivedAt = timestamp;
+    if (_isLiveCalibrationRecording && pressure.isFinite) {
+      _liveCalibrationSamples = [..._liveCalibrationSamples, pressure];
+      notifyListeners();
+      return;
+    }
     final detector = _liveSqueezeDetector;
     if (_canSaveLiveEvents && detector != null) {
       final event = detector.addPressureSample(
@@ -378,6 +429,60 @@ class DeviceState extends ChangeNotifier {
   }) {
     if (lastUpdate == null) return false;
     return now.difference(lastUpdate) > staleAfter;
+  }
+
+  static LiveCalibrationResult calculateLiveCalibration(List<double> samples) {
+    final cleanSamples = samples.where((sample) => sample.isFinite).toList();
+    if (cleanSamples.length < liveCalibrationBaselineSamples + 3) {
+      return const LiveCalibrationResult(
+        valid: false,
+        baselinePressure: 0,
+        mvsPressure: 0,
+        samplesUsed: 0,
+        reason: 'Not enough samples. Hold still, squeeze, and retry.',
+      );
+    }
+
+    final baselineSamples = cleanSamples
+        .take(liveCalibrationBaselineSamples)
+        .toList();
+    final baselineResult = PressureProcessingService.assessBaseline(
+      baselineSamples,
+    );
+    if (!baselineResult.isStable) {
+      return LiveCalibrationResult(
+        valid: false,
+        baselinePressure: baselineResult.meanPressure,
+        mvsPressure: 0,
+        samplesUsed: baselineSamples.length,
+        reason: 'Baseline unstable. Hold device still and retry.',
+      );
+    }
+
+    final squeezeSamples = cleanSamples
+        .skip(liveCalibrationBaselineSamples)
+        .toList();
+    final mvsResult = PressureProcessingService.calculateMvs(
+      baselinePressure: baselineResult.meanPressure,
+      samples: squeezeSamples,
+    );
+    if (!mvsResult.valid) {
+      return LiveCalibrationResult(
+        valid: false,
+        baselinePressure: baselineResult.meanPressure,
+        mvsPressure: mvsResult.mvsPressure,
+        samplesUsed: mvsResult.samplesUsed,
+        reason: mvsResult.reason,
+      );
+    }
+
+    return LiveCalibrationResult(
+      valid: true,
+      baselinePressure: baselineResult.meanPressure,
+      mvsPressure: mvsResult.mvsPressure,
+      samplesUsed: mvsResult.samplesUsed,
+      reason: 'Live calibration valid.',
+    );
   }
 
   @override

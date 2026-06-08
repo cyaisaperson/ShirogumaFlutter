@@ -1090,6 +1090,7 @@ class _CalibrationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final deviceState = DeviceStateScope.watch(context);
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1123,6 +1124,17 @@ class _CalibrationCard extends StatelessWidget {
             onPressed: () {
               showDialog<void>(
                 context: context,
+                builder: (_) => _LiveCalibrationDialog(patientId: patientId),
+              );
+            },
+            icon: const Icon(Icons.sensors),
+            label: const Text('Live calibrate'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () {
+              showDialog<void>(
+                context: context,
                 builder: (_) => _CalibrationDialog(
                   patientId: patientId,
                   calibration: calibration,
@@ -1130,11 +1142,151 @@ class _CalibrationCard extends StatelessWidget {
               );
             },
             icon: const Icon(Icons.tune),
-            label: const Text('Calibrate'),
+            label: const Text('Manual entry'),
           ),
+          if (deviceState.liveCalibrationResult != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              deviceState.liveCalibrationResult!.reason,
+              style: TextStyle(
+                color: deviceState.liveCalibrationResult!.valid
+                    ? AppColors.coralDark
+                    : Colors.red.shade700,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+}
+
+class _LiveCalibrationDialog extends StatelessWidget {
+  const _LiveCalibrationDialog({required this.patientId});
+
+  final String patientId;
+
+  @override
+  Widget build(BuildContext context) {
+    final deviceState = DeviceStateScope.watch(context);
+    final result = deviceState.liveCalibrationResult;
+    final latestPressure = deviceState.latestPressure;
+    final canSave = result?.valid == true;
+
+    return AlertDialog(
+      title: const Text('Live MVS calibration'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('1. Hold device still for baseline.'),
+            const Text('2. Squeeze with maximum comfortable force.'),
+            const Text('3. Release, then stop recording.'),
+            const SizedBox(height: 16),
+            Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: _liveCalibrationOrbSize(latestPressure),
+                height: _liveCalibrationOrbSize(latestPressure),
+                decoration: BoxDecoration(
+                  color: AppColors.coralSoft,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.coral, width: 3),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  latestPressure == null
+                      ? '--'
+                      : latestPressure.toStringAsFixed(0),
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _DetailLine(
+              label: 'Status',
+              value: deviceState.isLiveCalibrationRecording
+                  ? 'Recording'
+                  : 'Ready',
+            ),
+            _DetailLine(
+              label: 'Samples',
+              value: deviceState.liveCalibrationSampleCount.toString(),
+            ),
+            if (result != null) ...[
+              const SizedBox(height: 8),
+              _DetailLine(
+                label: 'Baseline',
+                value: result.baselinePressure <= 0
+                    ? '--'
+                    : '${result.baselinePressure.toStringAsFixed(0)} mbar',
+              ),
+              _DetailLine(
+                label: 'MVS',
+                value: result.mvsPressure <= 0
+                    ? '--'
+                    : '${result.mvsPressure.toStringAsFixed(0)} mbar',
+              ),
+              Text(
+                result.reason,
+                style: TextStyle(
+                  color: result.valid ? AppColors.coralDark : Colors.red,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            DeviceStateScope.read(context).resetLiveCalibration();
+            Navigator.of(context).pop();
+          },
+          child: const Text('Close'),
+        ),
+        if (deviceState.isLiveCalibrationRecording)
+          FilledButton(
+            onPressed: () {
+              DeviceStateScope.read(context).stopLiveCalibration();
+            },
+            child: const Text('Stop recording'),
+          )
+        else
+          FilledButton(
+            onPressed: () {
+              DeviceStateScope.read(context).startLiveCalibration();
+            },
+            child: const Text('Start live calibration'),
+          ),
+        FilledButton(
+          onPressed: canSave
+              ? () async {
+                  await AppStateScope.read(context).saveCalibration(
+                    patientId: patientId,
+                    baselinePressure: result!.baselinePressure,
+                    mvsPressure: result.mvsPressure,
+                    samplesUsed: result.samplesUsed,
+                    notes: 'Live MVS calibration',
+                  );
+                  if (!context.mounted) return;
+                  DeviceStateScope.read(context).resetLiveCalibration();
+                  Navigator.of(context).pop();
+                }
+              : null,
+          child: const Text('Save calibration'),
+        ),
+      ],
+    );
+  }
+
+  double _liveCalibrationOrbSize(double? pressure) {
+    if (pressure == null || !pressure.isFinite) return 82;
+    final scaled = 82 + ((pressure - 1000).clamp(0, 1400) / 1400) * 46;
+    return scaled.toDouble();
   }
 }
 

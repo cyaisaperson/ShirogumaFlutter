@@ -593,9 +593,9 @@ void main() {
     await tester.tap(find.text('Data').last);
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Calibrate'));
+    await tester.ensureVisible(find.text('Manual entry'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Calibrate'));
+    await tester.tap(find.text('Manual entry'));
     await tester.pumpAndSettle();
 
     await tester.enterText(

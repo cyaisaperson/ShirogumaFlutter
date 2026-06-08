@@ -30,4 +30,44 @@ void main() {
       isFalse,
     );
   });
+
+  test('live calibration computes stable baseline and MVS', () {
+    final samples = <double>[
+      ...List<double>.generate(20, (index) => 1000 + (index % 3)),
+      1010,
+      1050,
+      1200,
+      1500,
+      1800,
+      2100,
+      2250,
+      2300,
+      2280,
+      2240,
+      2100,
+      1700,
+      1300,
+    ];
+
+    final result = DeviceState.calculateLiveCalibration(samples);
+
+    expect(result.valid, isTrue);
+    expect(result.baselinePressure, closeTo(1001, 1));
+    expect(result.mvsPressure, greaterThan(2200));
+    expect(result.samplesUsed, greaterThan(0));
+  });
+
+  test('live calibration rejects unstable baseline', () {
+    final samples = <double>[
+      ...List<double>.generate(20, (index) => index.isEven ? 950 : 1100),
+      1300,
+      1500,
+      1700,
+    ];
+
+    final result = DeviceState.calculateLiveCalibration(samples);
+
+    expect(result.valid, isFalse);
+    expect(result.reason, contains('Baseline unstable'));
+  });
 }
