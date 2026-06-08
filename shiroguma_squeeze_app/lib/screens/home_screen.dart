@@ -23,7 +23,7 @@ class HomeScreen extends StatelessWidget {
     final deviceState = DeviceStateScope.watch(context);
     final batteryLabel = deviceState.batteryPercent == null
         ? 'Battery --'
-        : 'Battery ${deviceState.batteryPercent}%';
+        : 'Battery ${deviceState.batteryPercent}%${deviceState.isBatteryStale ? ' stale' : ''}';
     final modeLabel = settings.dataMode == DataMode.liveBle ? 'Live' : 'SD';
     final connectionLabel = 'Bluetooth ${deviceState.status.label}';
     final signalState = deviceState.isConnected ? 'streaming' : 'standby';
@@ -238,13 +238,30 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: deviceState.isConnected
+                        onPressed:
+                            deviceState.isConnected ||
+                                deviceState.status ==
+                                    DeviceConnectionStatus.connecting ||
+                                deviceState.status ==
+                                    DeviceConnectionStatus.scanning
                             ? null
-                            : () => DeviceStateScope.read(
-                                context,
-                              ).connect(settings),
+                            : () {
+                                if (deviceState.status ==
+                                    DeviceConnectionStatus.reconnecting) {
+                                  DeviceStateScope.read(context).reconnectNow();
+                                } else {
+                                  DeviceStateScope.read(
+                                    context,
+                                  ).connect(settings);
+                                }
+                              },
                         icon: const Icon(Icons.bluetooth_connected),
-                        label: const Text('Auto connect'),
+                        label: Text(
+                          deviceState.status ==
+                                  DeviceConnectionStatus.reconnecting
+                              ? 'Reconnect'
+                              : 'Auto connect',
+                        ),
                       ),
                     ),
                   ],

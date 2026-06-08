@@ -7,6 +7,7 @@
 - Phase 10: Settings and mode UI completed.
 - Phase 11: BLE connection service and live device status added.
 - Phase 12: Live BLE squeeze detection and active-patient event saving added.
+- Phase 13: BLE reconnect attempts and stale battery status added.
 
 ## Modified Files
 - `lib/app.dart`
@@ -27,6 +28,7 @@
 - `pubspec.lock`
 - `test/app_state_test.dart`
 - `test/ble_service_test.dart`
+- `test/device_state_test.dart`
 - `test/live_squeeze_detector_test.dart`
 - `test/csv_export_service_test.dart`
 - `test/widget_test.dart`
@@ -36,6 +38,7 @@
 - `BleService` can scan for `PressureTX`, connect, discover services, subscribe to pressure and battery notifications, and parse notification bytes.
 - Home shows current mode, connection status, connected device name when available, latest pressure, battery percentage, last update, connect/disconnect control, and a Bluetooth device browser for choosing a scanned device manually.
 - Live BLE pressure samples are buffered into squeeze segments, normalized with the active patient calibration, and saved as `live_ble` pain events only when saving is eligible.
+- Unexpected disconnects move the app into `Reconnecting`, retry with the last known device/settings while the app is open, and mark battery data stale after 30 seconds without updates.
 - Settings exposes Live BLE / SD Card Sync mode selection, BLE UUID values, connection status, and battery status.
 - Android manifest includes Bluetooth scan/connect permissions.
 - Device contract from the continuation plan is noted for Phase 11:
@@ -59,7 +62,7 @@
 - SD Card Sync UI is visible but intentionally disabled as `Coming later`.
 - BLE hardware testing with the physical XIAO is still pending.
 - Runtime permission prompting may need refinement after Android hardware testing.
-- BLE reconnection and SD card sync are not implemented yet.
+- SD card sync is not implemented yet.
 
 ## Exact Next Step
-- Phase 13: Improve BLE reconnection and status handling.
+- Phase 14: Prepare SD card sync architecture.

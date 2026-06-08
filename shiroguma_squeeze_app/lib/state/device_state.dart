@@ -32,14 +32,22 @@ enum DeviceConnectionStatus {
 class DeviceState extends ChangeNotifier {
   DeviceState();
 
+  static const batteryStaleAfter = Duration(seconds: 30);
+  static const reconnectDelay = Duration(seconds: 3);
+
   DeviceConnectionStatus _status = DeviceConnectionStatus.disconnected;
   String? _connectedDeviceName;
   double? _latestPressure;
   int? _batteryPercent;
   DateTime? _lastReceivedAt;
+  DateTime? _lastBatteryReceivedAt;
   String? _errorMessage;
   BleService? _bleService;
   List<BleDiscoveredDevice> _discoveredDevices = const [];
+  AppSettings? _lastConnectionSettings;
+  BleDiscoveredDevice? _lastDiscoveredDevice;
+  Timer? _reconnectTimer;
+  bool _manualDisconnecting = false;
   String? _livePatientId;
   Calibration? _liveCalibration;
   AppSettings _liveSettings = const AppSettings();
@@ -54,10 +62,16 @@ class DeviceState extends ChangeNotifier {
   double? get latestPressure => _latestPressure;
   int? get batteryPercent => _batteryPercent;
   DateTime? get lastReceivedAt => _lastReceivedAt;
+  DateTime? get lastBatteryReceivedAt => _lastBatteryReceivedAt;
   String? get errorMessage => _errorMessage;
   List<BleDiscoveredDevice> get discoveredDevices =>
       List.unmodifiable(_discoveredDevices);
   bool get isConnected => _status == DeviceConnectionStatus.connected;
+  bool get isBatteryStale => isTimestampStale(
+    lastUpdate: _lastBatteryReceivedAt,
+    now: DateTime.now(),
+    staleAfter: batteryStaleAfter,
+  );
   PainEvent? get lastRecordedLiveEvent => _lastRecordedLiveEvent;
   String? get liveRecordingMessage => _liveRecordingMessage;
   String get liveSavingStatus {
@@ -109,6 +123,8 @@ class DeviceState extends ChangeNotifier {
       return;
     }
     _setStatus(DeviceConnectionStatus.scanning);
+    _manualDisconnecting = false;
+    _lastConnectionSettings = settings;
     _errorMessage = null;
     final service = BleService(
       deviceName: settings.preferredDeviceName,
@@ -126,6 +142,7 @@ class DeviceState extends ChangeNotifier {
         onBattery: (batteryPercent) {
           _batteryPercent = batteryPercent;
           _lastReceivedAt = DateTime.now();
+          _lastBatteryReceivedAt = _lastReceivedAt;
           notifyListeners();
         },
         onConnectionState: (state) {
@@ -134,7 +151,7 @@ class DeviceState extends ChangeNotifier {
             _setStatus(DeviceConnectionStatus.connected);
           } else if (state == BluetoothConnectionState.disconnected) {
             _connectedDeviceName = null;
-            _setStatus(DeviceConnectionStatus.disconnected);
+            _handleUnexpectedDisconnect();
           }
         },
       );
@@ -179,6 +196,9 @@ class DeviceState extends ChangeNotifier {
         _status == DeviceConnectionStatus.connected) {
       return;
     }
+    _manualDisconnecting = false;
+    _lastConnectionSettings = settings;
+    _lastDiscoveredDevice = discoveredDevice;
     _setStatus(DeviceConnectionStatus.connecting);
     _errorMessage = null;
     final service =
@@ -199,6 +219,7 @@ class DeviceState extends ChangeNotifier {
         onBattery: (batteryPercent) {
           _batteryPercent = batteryPercent;
           _lastReceivedAt = DateTime.now();
+          _lastBatteryReceivedAt = _lastReceivedAt;
           notifyListeners();
         },
         onConnectionState: (state) {
@@ -207,7 +228,7 @@ class DeviceState extends ChangeNotifier {
             _setStatus(DeviceConnectionStatus.connected);
           } else if (state == BluetoothConnectionState.disconnected) {
             _connectedDeviceName = null;
-            _setStatus(DeviceConnectionStatus.disconnected);
+            _handleUnexpectedDisconnect();
           }
         },
       );
@@ -228,12 +249,27 @@ class DeviceState extends ChangeNotifier {
   }
 
   Future<void> disconnect() async {
+    _manualDisconnecting = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     await _bleService?.disconnect();
     _bleService = null;
     _connectedDeviceName = null;
     _discoveredDevices = const [];
     _liveSqueezeDetector = _buildLiveSqueezeDetector();
     _setStatus(DeviceConnectionStatus.disconnected);
+  }
+
+  Future<void> reconnectNow() async {
+    final settings = _lastConnectionSettings;
+    if (settings == null ||
+        _status == DeviceConnectionStatus.connecting ||
+        _status == DeviceConnectionStatus.connected) {
+      return;
+    }
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    await _attemptReconnect();
   }
 
   void _handleLivePressure(double pressure) {
@@ -296,8 +332,57 @@ class DeviceState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _handleUnexpectedDisconnect() {
+    if (_manualDisconnecting) {
+      _setStatus(DeviceConnectionStatus.disconnected);
+      return;
+    }
+    _setStatus(DeviceConnectionStatus.reconnecting);
+    _scheduleReconnect();
+  }
+
+  void _scheduleReconnect() {
+    if (_reconnectTimer != null || _lastConnectionSettings == null) {
+      return;
+    }
+    _reconnectTimer = Timer(reconnectDelay, () {
+      _reconnectTimer = null;
+      unawaited(_attemptReconnect());
+    });
+  }
+
+  Future<void> _attemptReconnect() async {
+    final settings = _lastConnectionSettings;
+    if (settings == null || _manualDisconnecting) return;
+    if (_status == DeviceConnectionStatus.connected ||
+        _status == DeviceConnectionStatus.connecting) {
+      return;
+    }
+    _setStatus(DeviceConnectionStatus.reconnecting);
+    _bleService = null;
+    final discoveredDevice = _lastDiscoveredDevice;
+    if (discoveredDevice != null) {
+      await connectToDiscoveredDevice(settings, discoveredDevice);
+    } else {
+      await connect(settings);
+    }
+    if (_status == DeviceConnectionStatus.error && !_manualDisconnecting) {
+      _scheduleReconnect();
+    }
+  }
+
+  static bool isTimestampStale({
+    required DateTime? lastUpdate,
+    required DateTime now,
+    required Duration staleAfter,
+  }) {
+    if (lastUpdate == null) return false;
+    return now.difference(lastUpdate) > staleAfter;
+  }
+
   @override
   void dispose() {
+    _reconnectTimer?.cancel();
     _bleService?.disconnect();
     super.dispose();
   }
