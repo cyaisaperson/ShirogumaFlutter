@@ -5,6 +5,7 @@ import '../models/pain_event.dart';
 import '../models/patient.dart';
 import '../services/csv_export_service.dart';
 import '../state/app_state_scope.dart';
+import '../state/device_state.dart';
 import '../state/device_state_scope.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_card.dart';
@@ -1173,6 +1174,7 @@ class _LiveCalibrationDialog extends StatelessWidget {
     final result = deviceState.liveCalibrationResult;
     final latestPressure = deviceState.latestPressure;
     final canSave = result?.valid == true;
+    final step = _calibrationStep(deviceState);
 
     return AlertDialog(
       title: const Text('Live MVS calibration'),
@@ -1181,9 +1183,33 @@ class _LiveCalibrationDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('1. Hold device still for baseline.'),
-            const Text('2. Squeeze with maximum comfortable force.'),
-            const Text('3. Release, then stop recording.'),
+            Text(
+              'Calibration - ${step.index + 1} of 4',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppColors.mutedText,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.6,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                for (var index = 0; index < 4; index++) ...[
+                  Expanded(
+                    child: Container(
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: index <= step.index
+                            ? AppColors.coral
+                            : AppColors.sand,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  if (index < 3) const SizedBox(width: 6),
+                ],
+              ],
+            ),
             const SizedBox(height: 16),
             Center(
               child: AnimatedContainer(
@@ -1205,30 +1231,40 @@ class _LiveCalibrationDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _DetailLine(
-              label: 'Status',
-              value: deviceState.isLiveCalibrationRecording
-                  ? 'Recording'
-                  : 'Ready',
+            Text(step.title, style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 6),
+            Text(
+              step.body,
+              style: const TextStyle(color: AppColors.mutedText, height: 1.35),
             ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: _CalibrationMiniMetric(
+                    label: 'Baseline',
+                    value: result == null || result.baselinePressure <= 0
+                        ? _baselineProgressLabel(deviceState)
+                        : '${result.baselinePressure.toStringAsFixed(0)} mbar',
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _CalibrationMiniMetric(
+                    label: 'MVS',
+                    value: result == null || result.mvsPressure <= 0
+                        ? _mvsProgressLabel(deviceState)
+                        : '${result.mvsPressure.toStringAsFixed(0)} mbar',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             _DetailLine(
               label: 'Samples',
               value: deviceState.liveCalibrationSampleCount.toString(),
             ),
-            if (result != null) ...[
-              const SizedBox(height: 8),
-              _DetailLine(
-                label: 'Baseline',
-                value: result.baselinePressure <= 0
-                    ? '--'
-                    : '${result.baselinePressure.toStringAsFixed(0)} mbar',
-              ),
-              _DetailLine(
-                label: 'MVS',
-                value: result.mvsPressure <= 0
-                    ? '--'
-                    : '${result.mvsPressure.toStringAsFixed(0)} mbar',
-              ),
+            if (result != null)
               Text(
                 result.reason,
                 style: TextStyle(
@@ -1236,7 +1272,6 @@ class _LiveCalibrationDialog extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-            ],
           ],
         ),
       ),
@@ -1260,7 +1295,7 @@ class _LiveCalibrationDialog extends StatelessWidget {
             onPressed: () {
               DeviceStateScope.read(context).startLiveCalibration();
             },
-            child: const Text('Start live calibration'),
+            child: Text(result?.valid == false ? 'Retry' : 'Begin'),
           ),
         FilledButton(
           onPressed: canSave
@@ -1287,6 +1322,112 @@ class _LiveCalibrationDialog extends StatelessWidget {
     if (pressure == null || !pressure.isFinite) return 82;
     final scaled = 82 + ((pressure - 1000).clamp(0, 1400) / 1400) * 46;
     return scaled.toDouble();
+  }
+
+  _GuidedCalibrationStep _calibrationStep(DeviceState deviceState) {
+    final result = deviceState.liveCalibrationResult;
+    if (result?.valid == true) {
+      return const _GuidedCalibrationStep(
+        index: 3,
+        title: 'All set',
+        body:
+            'Stable MVS found. Review the values, then save this calibration.',
+      );
+    }
+    if (deviceState.isLiveCalibrationRecording) {
+      if (deviceState.liveCalibrationSampleCount <
+          DeviceState.liveCalibrationBaselineSamples) {
+        return const _GuidedCalibrationStep(
+          index: 1,
+          title: 'Resting baseline',
+          body: 'Hold still with the lightest comfortable contact.',
+        );
+      }
+      return const _GuidedCalibrationStep(
+        index: 2,
+        title: 'Maximum squeeze',
+        body:
+            'Squeeze and hold at your maximum comfortable force. Recording stops automatically once the MVS is stable.',
+      );
+    }
+    if (result != null && !result.valid) {
+      return const _GuidedCalibrationStep(
+        index: 0,
+        title: 'Try again',
+        body:
+            'The last attempt was not stable enough. Reset your grip and begin again.',
+      );
+    }
+    return const _GuidedCalibrationStep(
+      index: 0,
+      title: 'Get comfortable',
+      body:
+          'Hold the soft device naturally. The app will collect a quiet baseline, then your maximum comfortable squeeze.',
+    );
+  }
+
+  String _baselineProgressLabel(DeviceState deviceState) {
+    if (!deviceState.isLiveCalibrationRecording) {
+      return '--';
+    }
+    final samples = deviceState.liveCalibrationSampleCount.clamp(
+      0,
+      DeviceState.liveCalibrationBaselineSamples,
+    );
+    return '$samples/${DeviceState.liveCalibrationBaselineSamples}';
+  }
+
+  String _mvsProgressLabel(DeviceState deviceState) {
+    if (!deviceState.isLiveCalibrationRecording ||
+        deviceState.liveCalibrationSampleCount <
+            DeviceState.liveCalibrationBaselineSamples) {
+      return 'Waiting';
+    }
+    return 'Collecting';
+  }
+}
+
+class _GuidedCalibrationStep {
+  const _GuidedCalibrationStep({
+    required this.index,
+    required this.title,
+    required this.body,
+  });
+
+  final int index;
+  final String title;
+  final String body;
+}
+
+class _CalibrationMiniMetric extends StatelessWidget {
+  const _CalibrationMiniMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.sand.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppColors.mutedText,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
+        ],
+      ),
+    );
   }
 }
 

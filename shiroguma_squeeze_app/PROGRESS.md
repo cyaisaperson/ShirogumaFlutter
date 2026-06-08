@@ -10,6 +10,7 @@
 - Phase 13: BLE reconnect attempts and stale battery status added.
 - Phase 14: SD Card Sync placeholder architecture added.
 - Phase 15: Live MVS calibration flow added with manual entry retained as fallback.
+- Calibration UX checkpoint: Live MVS calibration now uses a guided step flow with auto-stop after stable peak samples, and patient cards show MVS info plus a calibration shortcut.
 
 ## Modified Files
 - `lib/app.dart`
@@ -22,6 +23,8 @@
 - `lib/services/sync_service.dart`
 - `lib/screens/home_screen.dart`
 - `lib/screens/settings_screen.dart`
+- `lib/screens/patient_data_screen.dart`
+- `lib/screens/patients_screen.dart`
 - `lib/services/ble_service.dart`
 - `lib/services/live_squeeze_detector.dart`
 - `lib/state/device_state.dart`
@@ -46,6 +49,7 @@
 - Live BLE pressure samples are buffered into squeeze segments, normalized with the active patient calibration, and saved as `live_ble` pain events only when saving is eligible.
 - Unexpected disconnects move the app into `Reconnecting`, retry with the last known device/settings while the app is open, and mark battery data stale after 30 seconds without updates.
 - Live MVS calibration can record pressure samples from the BLE stream, evaluate baseline stability, compute MVS, and save valid calibration values to the active patient.
+- Live MVS calibration now guides the user through Get comfortable, Resting baseline, Maximum squeeze, and All set states; recording auto-stops once a stable MVS is detected.
 - Settings exposes Live BLE / SD Card Sync mode selection, BLE UUID values, connection status, and battery status.
 - Android manifest includes Bluetooth scan/connect permissions.
 - Device contract from the continuation plan is noted for Phase 11:
@@ -72,6 +76,7 @@
 - Runtime permission prompting may need refinement after Android hardware testing.
 - Full SD card log transfer/parsing/import is not implemented yet.
 - Live MVS calibration depends on an active BLE pressure stream; if the device is disconnected, recording will collect no samples and fail validation.
+- Live MVS calibration still requires the user to explicitly save after auto-stop so patient calibration is not overwritten by accident.
 
 ## Exact Next Step
 - Phase 16: Compact Header Battery Text.

@@ -118,7 +118,26 @@ void main() {
 
     expect(find.text('Anya Rahimi'), findsOneWidget);
     expect(find.text('Marcus Tate'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Joud Karam'), 300);
+    await tester.pumpAndSettle();
     expect(find.text('Joud Karam'), findsOneWidget);
+    expect(find.text('MVS calibration'), findsWidgets);
+    expect(find.text('View calibration'), findsWidgets);
+  });
+
+  testWidgets('patient card calibration shortcut opens patient data', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View calibration').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Patient Data'), findsOneWidget);
+    expect(find.text('Anya Rahimi'), findsOneWidget);
+    expect(find.text('Calibration'), findsOneWidget);
   });
 
   testWidgets('selecting a patient updates active patient views', (
@@ -591,6 +610,18 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Live calibrate'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Live calibrate'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Get comfortable'), findsOneWidget);
+    expect(find.text('Begin'), findsOneWidget);
+    expect(find.text('Calibration - 1 of 4'), findsOneWidget);
+    expect(find.text('1. Hold device still for baseline.'), findsNothing);
+    await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('Manual entry'));

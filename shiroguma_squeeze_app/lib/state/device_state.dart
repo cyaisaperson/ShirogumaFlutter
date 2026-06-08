@@ -52,6 +52,7 @@ class DeviceState extends ChangeNotifier {
   static const batteryStaleAfter = Duration(seconds: 30);
   static const reconnectDelay = Duration(seconds: 3);
   static const liveCalibrationBaselineSamples = 20;
+  static const liveCalibrationStableMvsSamples = 8;
 
   DeviceConnectionStatus _status = DeviceConnectionStatus.disconnected;
   String? _connectedDeviceName;
@@ -324,6 +325,11 @@ class DeviceState extends ChangeNotifier {
     _lastReceivedAt = timestamp;
     if (_isLiveCalibrationRecording && pressure.isFinite) {
       _liveCalibrationSamples = [..._liveCalibrationSamples, pressure];
+      final result = autoStopLiveCalibrationResult(_liveCalibrationSamples);
+      if (result != null) {
+        _isLiveCalibrationRecording = false;
+        _liveCalibrationResult = result;
+      }
       notifyListeners();
       return;
     }
@@ -482,6 +488,25 @@ class DeviceState extends ChangeNotifier {
       mvsPressure: mvsResult.mvsPressure,
       samplesUsed: mvsResult.samplesUsed,
       reason: 'Live calibration valid.',
+    );
+  }
+
+  static LiveCalibrationResult? autoStopLiveCalibrationResult(
+    List<double> samples,
+  ) {
+    final result = calculateLiveCalibration(samples);
+    if (!result.valid) {
+      return null;
+    }
+    if (result.samplesUsed < liveCalibrationStableMvsSamples) {
+      return null;
+    }
+    return LiveCalibrationResult(
+      valid: true,
+      baselinePressure: result.baselinePressure,
+      mvsPressure: result.mvsPressure,
+      samplesUsed: result.samplesUsed,
+      reason: 'Stable MVS found. Ready to save.',
     );
   }
 

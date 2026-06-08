@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../models/calibration.dart';
 import '../models/patient.dart';
 import '../state/app_state_scope.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_card.dart';
 
 class PatientsScreen extends StatelessWidget {
-  const PatientsScreen({super.key});
+  const PatientsScreen({super.key, this.onNavigate});
+
+  final ValueChanged<int>? onNavigate;
 
   @override
   Widget build(BuildContext context) {
@@ -35,9 +38,14 @@ class PatientsScreen extends StatelessWidget {
           for (final patient in appState.patients) ...[
             _PatientCard(
               patient: patient,
+              calibration: appState.calibrationForPatient(patient.id),
               isActive: appState.settings.activePatientId == patient.id,
               onTap: () =>
                   AppStateScope.read(context).setActivePatient(patient.id),
+              onOpenData: () {
+                AppStateScope.read(context).setActivePatient(patient.id);
+                onNavigate?.call(2);
+              },
               onEdit: () => _showPatientDialog(context, patient: patient),
             ),
             const SizedBox(height: 12),
@@ -61,14 +69,18 @@ class PatientsScreen extends StatelessWidget {
 class _PatientCard extends StatelessWidget {
   const _PatientCard({
     required this.patient,
+    required this.calibration,
     required this.isActive,
     required this.onTap,
+    required this.onOpenData,
     required this.onEdit,
   });
 
   final Patient patient;
+  final Calibration? calibration;
   final bool isActive;
   final VoidCallback onTap;
+  final VoidCallback onOpenData;
   final VoidCallback onEdit;
 
   @override
@@ -128,6 +140,21 @@ class _PatientCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(patient.description),
+                const SizedBox(height: 12),
+                _CalibrationSummary(calibration: calibration),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: onOpenData,
+                    icon: const Icon(Icons.tune),
+                    label: Text(
+                      calibration == null
+                          ? 'Open calibration'
+                          : 'View calibration',
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -142,6 +169,61 @@ class _PatientCard extends StatelessWidget {
       return parts.first.substring(0, 1).toUpperCase();
     }
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+}
+
+class _CalibrationSummary extends StatelessWidget {
+  const _CalibrationSummary({required this.calibration});
+
+  final Calibration? calibration;
+
+  @override
+  Widget build(BuildContext context) {
+    final calibration = this.calibration;
+    final labelStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+      color: AppColors.mutedText,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 0.4,
+    );
+    final valueStyle = Theme.of(
+      context,
+    ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.sand),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.speed, color: AppColors.coralDark, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('MVS calibration', style: labelStyle),
+                const SizedBox(height: 2),
+                Text(
+                  calibration == null
+                      ? 'Not calibrated'
+                      : '${calibration.mvsPressure.toStringAsFixed(0)} mbar',
+                  style: valueStyle,
+                ),
+              ],
+            ),
+          ),
+          if (calibration != null)
+            Text(
+              'Baseline ${calibration.baselinePressure.toStringAsFixed(0)}',
+              style: const TextStyle(color: AppColors.mutedText),
+            ),
+        ],
+      ),
+    );
   }
 }
 

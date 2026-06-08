@@ -73,8 +73,12 @@ class AppState extends ChangeNotifier {
     if (patient == null) {
       return null;
     }
+    return calibrationForPatient(patient.id);
+  }
+
+  Calibration? calibrationForPatient(String patientId) {
     for (final calibration in _calibrations) {
-      if (calibration.patientId == patient.id) {
+      if (calibration.patientId == patientId) {
         return calibration;
       }
     }

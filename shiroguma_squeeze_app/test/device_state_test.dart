@@ -57,6 +57,39 @@ void main() {
     expect(result.samplesUsed, greaterThan(0));
   });
 
+  test('live calibration auto-stop waits for stable peak samples', () {
+    final baseline = List<double>.generate(20, (index) => 1000 + (index % 2));
+    final earlySqueeze = <double>[1015, 1210, 1800, 2260, 2300];
+    final stableSqueeze = <double>[
+      1015,
+      1210,
+      1800,
+      2240,
+      2260,
+      2280,
+      2300,
+      2290,
+      2270,
+      2255,
+      2245,
+      2235,
+    ];
+
+    expect(
+      DeviceState.autoStopLiveCalibrationResult([...baseline, ...earlySqueeze]),
+      isNull,
+    );
+
+    final result = DeviceState.autoStopLiveCalibrationResult([
+      ...baseline,
+      ...stableSqueeze,
+    ]);
+
+    expect(result, isNotNull);
+    expect(result!.valid, isTrue);
+    expect(result.reason, contains('Stable MVS found'));
+  });
+
   test('live calibration rejects unstable baseline', () {
     final samples = <double>[
       ...List<double>.generate(20, (index) => index.isEven ? 950 : 1100),

@@ -83,7 +83,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget build(BuildContext context) {
     final pages = [
       HomeScreen(onNavigate: _selectIndex),
-      const PatientsScreen(),
+      PatientsScreen(onNavigate: _selectIndex),
       const PatientDataScreen(),
       const SettingsScreen(),
     ];
