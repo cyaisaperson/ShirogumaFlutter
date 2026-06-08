@@ -8,6 +8,7 @@
 - Phase 11: BLE connection service and live device status added.
 - Phase 12: Live BLE squeeze detection and active-patient event saving added.
 - Phase 13: BLE reconnect attempts and stale battery status added.
+- Phase 14: SD Card Sync placeholder architecture added.
 
 ## Modified Files
 - `lib/app.dart`
@@ -17,12 +18,15 @@
 - `lib/state/app_state.dart`
 - `lib/state/mock_data.dart`
 - `lib/services/csv_export_service.dart`
+- `lib/services/sync_service.dart`
 - `lib/screens/home_screen.dart`
 - `lib/screens/settings_screen.dart`
 - `lib/services/ble_service.dart`
 - `lib/services/live_squeeze_detector.dart`
 - `lib/state/device_state.dart`
 - `lib/state/device_state_scope.dart`
+- `lib/state/sd_card_sync_state.dart`
+- `lib/state/sd_card_sync_state_scope.dart`
 - `android/app/src/main/AndroidManifest.xml`
 - `pubspec.yaml`
 - `pubspec.lock`
@@ -30,6 +34,7 @@
 - `test/ble_service_test.dart`
 - `test/device_state_test.dart`
 - `test/live_squeeze_detector_test.dart`
+- `test/sync_service_test.dart`
 - `test/csv_export_service_test.dart`
 - `test/widget_test.dart`
 
@@ -53,16 +58,17 @@
 - Calibrations persist locally.
 - Pain events persist locally.
 - Data mode and BLE/detection settings persist locally.
+- Pain events support a future `externalSampleId` duplicate key for SD sync imports.
 - Patient ID uniqueness and generated `P-00x` behavior remain in place.
 - Current persistence uses `shared_preferences` JSON storage as the temporary fallback allowed in the plan.
 
 ## Known Issues
 - Drift/SQLite has not been introduced yet.
 - CSV export writes to the system temp directory and reports the file path in a snackbar.
-- SD Card Sync UI is visible but intentionally disabled as `Coming later`.
+- SD Card Sync UI is visible, intentionally disabled as `Coming later`, and backed by placeholder sync service/state architecture.
 - BLE hardware testing with the physical XIAO is still pending.
 - Runtime permission prompting may need refinement after Android hardware testing.
-- SD card sync is not implemented yet.
+- Full SD card log transfer/parsing/import is not implemented yet.
 
 ## Exact Next Step
-- Phase 14: Prepare SD card sync architecture.
+- All planned phases in `codex_continue_after_phase7.md` are complete. Next work should be driven by hardware testing feedback or a new implementation plan.

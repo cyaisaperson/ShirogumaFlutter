@@ -7,6 +7,8 @@ import 'state/app_state.dart';
 import 'state/app_state_scope.dart';
 import 'state/device_state.dart';
 import 'state/device_state_scope.dart';
+import 'state/sd_card_sync_state.dart';
+import 'state/sd_card_sync_state_scope.dart';
 import 'theme/app_theme.dart';
 
 class ShirogumaApp extends StatefulWidget {
@@ -19,6 +21,7 @@ class ShirogumaApp extends StatefulWidget {
 class _ShirogumaAppState extends State<ShirogumaApp> {
   late final AppState appState = AppState.seeded();
   late final DeviceState deviceState = DeviceState();
+  late final SdCardSyncState sdCardSyncState = SdCardSyncState();
 
   @override
   void initState() {
@@ -31,6 +34,7 @@ class _ShirogumaAppState extends State<ShirogumaApp> {
   @override
   void dispose() {
     appState.removeListener(_syncLiveDetectionContext);
+    sdCardSyncState.dispose();
     deviceState.dispose();
     appState.dispose();
     super.dispose();
@@ -42,11 +46,14 @@ class _ShirogumaAppState extends State<ShirogumaApp> {
       appState: appState,
       child: DeviceStateScope(
         deviceState: deviceState,
-        child: MaterialApp(
-          title: 'Shiroguma Squeeze',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          home: const MainNavigationScreen(),
+        child: SdCardSyncStateScope(
+          syncState: sdCardSyncState,
+          child: MaterialApp(
+            title: 'Shiroguma Squeeze',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            home: const MainNavigationScreen(),
+          ),
         ),
       ),
     );

@@ -14,6 +14,7 @@ class PainEvent {
     this.endTime,
     this.durationMs,
     this.deviceId,
+    this.externalSampleId,
     this.notes,
   });
 
@@ -31,6 +32,7 @@ class PainEvent {
   final double mvsPressure;
   final String source;
   final String? deviceId;
+  final String? externalSampleId;
   final String? notes;
 
   factory PainEvent.fromJson(Map<String, Object?> json) {
@@ -49,6 +51,7 @@ class PainEvent {
       mvsPressure: (json['mvsPressure'] as num).toDouble(),
       source: json['source'] as String,
       deviceId: json['deviceId'] as String?,
+      externalSampleId: json['externalSampleId'] as String?,
       notes: json['notes'] as String?,
     );
   }
@@ -69,6 +72,7 @@ class PainEvent {
       'mvsPressure': mvsPressure,
       'source': source,
       'deviceId': deviceId,
+      'externalSampleId': externalSampleId,
       'notes': notes,
     };
   }

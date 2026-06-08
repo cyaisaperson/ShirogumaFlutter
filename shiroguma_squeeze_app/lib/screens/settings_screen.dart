@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/app_settings.dart';
 import '../state/app_state_scope.dart';
 import '../state/device_state_scope.dart';
+import '../state/sd_card_sync_state_scope.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_card.dart';
 
@@ -13,6 +14,7 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = AppStateScope.watch(context);
     final deviceState = DeviceStateScope.watch(context);
+    final syncState = SdCardSyncStateScope.watch(context);
     final settings = appState.settings;
 
     return SafeArea(
@@ -184,6 +186,17 @@ class SettingsScreen extends StatelessWidget {
                       ? 'Never'
                       : settings.lastSdSyncAt!.toIso8601String(),
                 ),
+                _SettingRow(label: 'Status', value: syncState.message),
+                _SettingRow(
+                  label: 'Imported events',
+                  value: syncState.importedEvents.toString(),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Future flow: connect to device, request stored SD log, parse historical pressure samples, assign timestamps, save under the active patient, and avoid duplicate imports.',
+                  style: TextStyle(color: AppColors.mutedText),
+                ),
+                const SizedBox(height: 12),
                 FilledButton.icon(
                   onPressed: null,
                   icon: const Icon(Icons.sync_disabled),

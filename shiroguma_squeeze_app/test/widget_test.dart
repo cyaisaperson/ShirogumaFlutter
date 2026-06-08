@@ -78,6 +78,11 @@ void main() {
     await tester.scrollUntilVisible(find.text('Coming later'), 200);
     await tester.pumpAndSettle();
     expect(find.text('Coming later'), findsOneWidget);
+    expect(
+      find.textContaining('parse historical pressure samples'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('avoid duplicate imports'), findsOneWidget);
     expect(find.text('Clear local database'), findsOneWidget);
 
     await tester.tap(find.text('Home').last);
