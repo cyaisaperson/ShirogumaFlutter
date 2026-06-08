@@ -617,9 +617,10 @@ void main() {
     await tester.tap(find.text('Live calibrate'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Get comfortable'), findsOneWidget);
-    expect(find.text('Begin'), findsOneWidget);
-    expect(find.text('Calibration - 1 of 4'), findsOneWidget);
+    expect(find.text('Resting baseline'), findsOneWidget);
+    expect(find.text('Begin'), findsNothing);
+    expect(find.text('Stop recording'), findsNothing);
+    expect(find.text('Calibration - 2 of 4'), findsOneWidget);
     expect(find.text('1. Hold device still for baseline.'), findsNothing);
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();

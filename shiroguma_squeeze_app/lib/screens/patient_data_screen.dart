@@ -1163,10 +1163,24 @@ class _CalibrationCard extends StatelessWidget {
   }
 }
 
-class _LiveCalibrationDialog extends StatelessWidget {
+class _LiveCalibrationDialog extends StatefulWidget {
   const _LiveCalibrationDialog({required this.patientId});
 
   final String patientId;
+
+  @override
+  State<_LiveCalibrationDialog> createState() => _LiveCalibrationDialogState();
+}
+
+class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      DeviceStateScope.read(context).startLiveCalibration();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1283,25 +1297,18 @@ class _LiveCalibrationDialog extends StatelessWidget {
           },
           child: const Text('Close'),
         ),
-        if (deviceState.isLiveCalibrationRecording)
-          FilledButton(
-            onPressed: () {
-              DeviceStateScope.read(context).stopLiveCalibration();
-            },
-            child: const Text('Stop recording'),
-          )
-        else
+        if (!deviceState.isLiveCalibrationRecording && result != null)
           FilledButton(
             onPressed: () {
               DeviceStateScope.read(context).startLiveCalibration();
             },
-            child: Text(result?.valid == false ? 'Retry' : 'Begin'),
+            child: const Text('Recalibrate'),
           ),
         FilledButton(
           onPressed: canSave
               ? () async {
                   await AppStateScope.read(context).saveCalibration(
-                    patientId: patientId,
+                    patientId: widget.patientId,
                     baselinePressure: result!.baselinePressure,
                     mvsPressure: result.mvsPressure,
                     samplesUsed: result.samplesUsed,
