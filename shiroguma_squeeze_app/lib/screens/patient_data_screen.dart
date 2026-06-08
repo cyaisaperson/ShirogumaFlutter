@@ -5,6 +5,7 @@ import '../models/pain_event.dart';
 import '../models/patient.dart';
 import '../services/csv_export_service.dart';
 import '../state/app_state_scope.dart';
+import '../state/device_state_scope.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_card.dart';
 
@@ -23,6 +24,7 @@ class _PatientDataScreenState extends State<PatientDataScreen> {
   @override
   Widget build(BuildContext context) {
     final appState = AppStateScope.watch(context);
+    final deviceState = DeviceStateScope.watch(context);
     final patient = appState.activePatient;
 
     return SafeArea(
@@ -44,6 +46,7 @@ class _PatientDataScreenState extends State<PatientDataScreen> {
               patient: patient,
               calibration: appState.activeCalibration,
               events: appState.activePatientEvents,
+              liveSavingStatus: deviceState.liveSavingStatus,
               selectedRange: selectedRange,
               selectedDate: selectedDate,
               selectedEventId: selectedEventId,
@@ -80,6 +83,7 @@ class _PatientDataContent extends StatelessWidget {
     required this.patient,
     required this.calibration,
     required this.events,
+    required this.liveSavingStatus,
     required this.selectedRange,
     required this.selectedDate,
     required this.selectedEventId,
@@ -91,6 +95,7 @@ class _PatientDataContent extends StatelessWidget {
   final Patient patient;
   final Calibration? calibration;
   final List<PainEvent> events;
+  final String liveSavingStatus;
   final String selectedRange;
   final DateTime selectedDate;
   final String? selectedEventId;
@@ -120,9 +125,7 @@ class _PatientDataContent extends StatelessWidget {
         const SizedBox(height: 16),
         _SelectedEventCard(
           event: selectedEvent,
-          liveSavingStatus: calibration == null
-              ? 'Blocked: calibration required'
-              : 'Blocked: BLE disconnected',
+          liveSavingStatus: liveSavingStatus,
         ),
         const SizedBox(height: 16),
         _CalibrationCard(patientId: patient.id, calibration: calibration),

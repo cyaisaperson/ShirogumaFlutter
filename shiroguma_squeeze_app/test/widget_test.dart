@@ -24,6 +24,8 @@ void main() {
     expect(find.text('Browse devices'), findsOneWidget);
     expect(find.text('DEVICE'), findsOneWidget);
     expect(find.text('XIAO nRF52840'), findsOneWidget);
+    expect(find.text('Live saving:'), findsOneWidget);
+    expect(find.text('Blocked: BLE disconnected'), findsOneWidget);
   });
 
   testWidgets('bottom navigation switches between primary pages', (

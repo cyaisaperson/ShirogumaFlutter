@@ -23,11 +23,14 @@ class _ShirogumaAppState extends State<ShirogumaApp> {
   @override
   void initState() {
     super.initState();
-    appState.loadPersistedState();
+    appState.addListener(_syncLiveDetectionContext);
+    _syncLiveDetectionContext();
+    appState.loadPersistedState().then((_) => _syncLiveDetectionContext());
   }
 
   @override
   void dispose() {
+    appState.removeListener(_syncLiveDetectionContext);
     deviceState.dispose();
     appState.dispose();
     super.dispose();
@@ -46,6 +49,15 @@ class _ShirogumaAppState extends State<ShirogumaApp> {
           home: const MainNavigationScreen(),
         ),
       ),
+    );
+  }
+
+  void _syncLiveDetectionContext() {
+    deviceState.configureLiveDetection(
+      activePatientId: appState.activePatient?.id,
+      calibration: appState.activeCalibration,
+      settings: appState.settings,
+      onPainEvent: appState.savePainEvent,
     );
   }
 }

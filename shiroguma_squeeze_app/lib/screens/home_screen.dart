@@ -148,6 +148,12 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (deviceState.liveRecordingMessage != null) ...[
+                  const SizedBox(height: 12),
+                  _LiveRecordingNotice(
+                    message: deviceState.liveRecordingMessage!,
+                  ),
+                ],
               ],
             ),
           ),
@@ -180,6 +186,11 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 const _DeviceInfoRow(label: 'Rate', value: '50 Hz'),
+                const SizedBox(height: 6),
+                _DeviceInfoRow(
+                  label: 'Live saving',
+                  value: deviceState.liveSavingStatus,
+                ),
                 if (deviceState.lastReceivedAt != null) ...[
                   const SizedBox(height: 6),
                   _DeviceInfoRow(
@@ -570,6 +581,33 @@ class _DeviceInfoRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _LiveRecordingNotice extends StatelessWidget {
+  const _LiveRecordingNotice({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.coralSoft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.coral),
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: AppColors.coralDark,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 }
