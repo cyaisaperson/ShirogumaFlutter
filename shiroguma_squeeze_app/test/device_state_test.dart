@@ -57,10 +57,10 @@ void main() {
     expect(result.samplesUsed, greaterThan(0));
   });
 
-  test('live calibration auto-stop waits for stable peak samples', () {
+  test('live calibration auto-stop waits for extended stable peak samples', () {
     final baseline = List<double>.generate(20, (index) => 1000 + (index % 2));
     final earlySqueeze = <double>[1015, 1210, 1800, 2260, 2300];
-    final stableSqueeze = <double>[
+    final shortPeakHold = <double>[
       1015,
       1210,
       1800,
@@ -74,15 +74,33 @@ void main() {
       2245,
       2235,
     ];
+    final extendedPeakHold = <double>[
+      ...shortPeakHold,
+      2265,
+      2275,
+      2285,
+      2295,
+      2288,
+      2278,
+      2268,
+      2258,
+    ];
 
     expect(
       DeviceState.autoStopLiveCalibrationResult([...baseline, ...earlySqueeze]),
       isNull,
     );
+    expect(
+      DeviceState.autoStopLiveCalibrationResult([
+        ...baseline,
+        ...shortPeakHold,
+      ]),
+      isNull,
+    );
 
     final result = DeviceState.autoStopLiveCalibrationResult([
       ...baseline,
-      ...stableSqueeze,
+      ...extendedPeakHold,
     ]);
 
     expect(result, isNotNull);

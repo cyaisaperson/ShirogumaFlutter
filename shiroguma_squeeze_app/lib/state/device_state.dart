@@ -52,7 +52,7 @@ class DeviceState extends ChangeNotifier {
   static const batteryStaleAfter = Duration(seconds: 30);
   static const reconnectDelay = Duration(seconds: 3);
   static const liveCalibrationBaselineSamples = 20;
-  static const liveCalibrationStableMvsSamples = 8;
+  static const liveCalibrationStableMvsSamples = 14;
 
   DeviceConnectionStatus _status = DeviceConnectionStatus.disconnected;
   String? _connectedDeviceName;
