@@ -644,13 +644,14 @@ void main() {
 
     expect(find.text('Get comfortable'), findsOneWidget);
     expect(find.text('Begin'), findsOneWidget);
+    expect(find.text('Save calibration'), findsNothing);
     expect(find.text('Stop recording'), findsNothing);
     expect(find.text('Calibration - 1 of 3'), findsOneWidget);
     await tester.tap(find.text('Begin'));
     await tester.pump();
     expect(find.text('Press in 3'), findsOneWidget);
     expect(find.text('1. Hold device still for baseline.'), findsNothing);
-    await tester.tap(find.text('Close'));
+    await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('Manual entry'));

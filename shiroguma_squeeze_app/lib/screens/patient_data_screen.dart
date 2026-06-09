@@ -1211,7 +1211,21 @@ class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
     final step = _calibrationStep(deviceState, countdownSeconds);
 
     return AlertDialog(
-      title: const Text('Live MVS calibration'),
+      titlePadding: const EdgeInsets.fromLTRB(24, 18, 12, 0),
+      title: Row(
+        children: [
+          const Expanded(child: Text('Live MVS calibration')),
+          IconButton(
+            tooltip: 'Close',
+            onPressed: () {
+              countdownTimer?.cancel();
+              DeviceStateScope.read(context).resetLiveCalibration();
+              Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1310,14 +1324,6 @@ class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () {
-            countdownTimer?.cancel();
-            DeviceStateScope.read(context).resetLiveCalibration();
-            Navigator.of(context).pop();
-          },
-          child: const Text('Close'),
-        ),
         if (deviceState.isLiveCalibrationRecording || countdownSeconds != null)
           const SizedBox.shrink()
         else if (result == null)
@@ -1327,23 +1333,22 @@ class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
             onPressed: _beginCountdown,
             child: const Text('Recalibrate'),
           ),
-        FilledButton(
-          onPressed: canSave
-              ? () async {
-                  await AppStateScope.read(context).saveCalibration(
-                    patientId: widget.patientId,
-                    baselinePressure: result!.baselinePressure,
-                    mvsPressure: result.mvsPressure,
-                    samplesUsed: result.samplesUsed,
-                    notes: 'Live MVS calibration',
-                  );
-                  if (!context.mounted) return;
-                  DeviceStateScope.read(context).resetLiveCalibration();
-                  Navigator.of(context).pop();
-                }
-              : null,
-          child: const Text('Save calibration'),
-        ),
+        if (canSave)
+          FilledButton(
+            onPressed: () async {
+              await AppStateScope.read(context).saveCalibration(
+                patientId: widget.patientId,
+                baselinePressure: result!.baselinePressure,
+                mvsPressure: result.mvsPressure,
+                samplesUsed: result.samplesUsed,
+                notes: 'Live MVS calibration',
+              );
+              if (!context.mounted) return;
+              DeviceStateScope.read(context).resetLiveCalibration();
+              Navigator.of(context).pop();
+            },
+            child: const Text('Save calibration'),
+          ),
       ],
     );
   }
