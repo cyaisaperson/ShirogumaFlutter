@@ -23,7 +23,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Browse devices'), findsOneWidget);
     expect(find.text('DEVICE'), findsOneWidget);
-    expect(find.text('XIAO nRF52840'), findsOneWidget);
+    expect(find.text('Not connected'), findsOneWidget);
+    expect(find.text('Preferred: PressureTX'), findsOneWidget);
     expect(find.text('Live saving:'), findsOneWidget);
     expect(find.text('Blocked: BLE disconnected'), findsOneWidget);
   });

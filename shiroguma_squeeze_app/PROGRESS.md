@@ -13,6 +13,7 @@
 - Phase 16: Compact header battery/status text now uses short one-line chips, hides the mode chip first on narrow widths, and keeps device battery detail compact.
 - Phase 17: Actual BLE battery value path confirmed; battery notifications log raw bytes and parsed percentage while the UI shows real state or `--%`.
 - Phase 21: Required UI polish pass moved Live MVS close control to the dialog header and only shows Save calibration once a valid final result exists.
+- Phase 22: Removed completed-feature fake Home values by showing connected device/preferred device from state and replacing hard-coded sample rate with `--`.
 - Calibration UX checkpoint: Live MVS calibration now uses a guided step flow with auto-stop after stable peak samples, and patient cards show MVS info plus a calibration shortcut.
 - Calibration stability tweak: Live MVS auto-stop now waits for a longer stable max-force hold before accepting the calibration.
 - Calibration button-flow tweak: Live MVS calibration starts automatically when opened and shows Recalibrate only after recording reaches a result.
@@ -91,7 +92,8 @@
 - Live MVS calibration still requires the user to explicitly save after auto-stop so patient calibration is not overwritten by accident.
 
 ## Exact Next Step
-- Phase 22: Remove Placeholders and Wire Real States.
+- Phase 23: Fool-Proofing and Robust Error Handling.
+
 
 
 

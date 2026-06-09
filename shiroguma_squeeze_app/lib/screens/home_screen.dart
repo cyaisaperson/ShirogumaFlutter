@@ -33,6 +33,7 @@ class HomeScreen extends StatelessWidget {
     final sasValue = latestEvent == null
         ? '--'
         : latestEvent.painLevel.toString();
+    const rateValue = '--';
 
     return SafeArea(
       child: ListView(
@@ -143,8 +144,8 @@ class HomeScreen extends StatelessWidget {
                       child: _SignalMetric(label: 'SAS', value: sasValue),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
-                      child: _SignalMetric(label: 'Rate', value: '50 Hz'),
+                    Expanded(
+                      child: _SignalMetric(label: 'Rate', value: rateValue),
                     ),
                   ],
                 ),
@@ -171,18 +172,18 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Squeeze·01',
+                  deviceState.connectedDeviceName ?? 'Not connected',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 2),
-                const Text(
-                  'XIAO nRF52840',
-                  style: TextStyle(color: AppColors.mutedText),
+                Text(
+                  'Preferred: ${settings.preferredDeviceName}',
+                  style: const TextStyle(color: AppColors.mutedText),
                 ),
                 const SizedBox(height: 14),
                 _DeviceInfoRow(label: 'Battery', value: batteryLabel),
                 const SizedBox(height: 6),
-                const _DeviceInfoRow(label: 'Rate', value: '50 Hz'),
+                _DeviceInfoRow(label: 'Rate', value: rateValue),
                 const SizedBox(height: 6),
                 _DeviceInfoRow(
                   label: 'Live saving',
