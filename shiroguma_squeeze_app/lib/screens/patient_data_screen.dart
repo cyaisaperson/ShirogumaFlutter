@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/calibration.dart';
@@ -1173,13 +1175,13 @@ class _LiveCalibrationDialog extends StatefulWidget {
 }
 
 class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
+  Timer? countdownTimer;
+  int? countdownSeconds;
+
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      DeviceStateScope.read(context).startLiveCalibration();
-    });
+  void dispose() {
+    countdownTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -1188,7 +1190,7 @@ class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
     final result = deviceState.liveCalibrationResult;
     final latestPressure = deviceState.latestPressure;
     final canSave = result?.valid == true;
-    final step = _calibrationStep(deviceState);
+    final step = _calibrationStep(deviceState, countdownSeconds);
 
     return AlertDialog(
       title: const Text('Live MVS calibration'),
@@ -1198,7 +1200,7 @@ class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Calibration - ${step.index + 1} of 4',
+              'Calibration - ${step.index + 1} of 3',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: AppColors.mutedText,
                 fontWeight: FontWeight.w800,
@@ -1208,7 +1210,7 @@ class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
             const SizedBox(height: 8),
             Row(
               children: [
-                for (var index = 0; index < 4; index++) ...[
+                for (var index = 0; index < 3; index++) ...[
                   Expanded(
                     child: Container(
                       height: 6,
@@ -1220,7 +1222,7 @@ class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
                       ),
                     ),
                   ),
-                  if (index < 3) const SizedBox(width: 6),
+                  if (index < 2) const SizedBox(width: 6),
                 ],
               ],
             ),
@@ -1258,7 +1260,7 @@ class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
                   child: _CalibrationMiniMetric(
                     label: 'Baseline',
                     value: result == null || result.baselinePressure <= 0
-                        ? _baselineProgressLabel(deviceState)
+                        ? _baselineLabel(deviceState)
                         : '${result.baselinePressure.toStringAsFixed(0)} mbar',
                   ),
                 ),
@@ -1292,16 +1294,19 @@ class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
       actions: [
         TextButton(
           onPressed: () {
+            countdownTimer?.cancel();
             DeviceStateScope.read(context).resetLiveCalibration();
             Navigator.of(context).pop();
           },
           child: const Text('Close'),
         ),
-        if (!deviceState.isLiveCalibrationRecording && result != null)
+        if (deviceState.isLiveCalibrationRecording || countdownSeconds != null)
+          const SizedBox.shrink()
+        else if (result == null)
+          FilledButton(onPressed: _beginCountdown, child: const Text('Begin'))
+        else
           FilledButton(
-            onPressed: () {
-              DeviceStateScope.read(context).startLiveCalibration();
-            },
+            onPressed: _beginCountdown,
             child: const Text('Recalibrate'),
           ),
         FilledButton(
@@ -1331,66 +1336,98 @@ class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
     return scaled.toDouble();
   }
 
-  _GuidedCalibrationStep _calibrationStep(DeviceState deviceState) {
+  void _beginCountdown() {
+    countdownTimer?.cancel();
+    DeviceStateScope.read(context).resetLiveCalibration();
+    setState(() {
+      countdownSeconds = 3;
+    });
+    countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      final current = countdownSeconds;
+      if (current == null) {
+        timer.cancel();
+        return;
+      }
+      if (current <= 1) {
+        timer.cancel();
+        if (!mounted) return;
+        setState(() {
+          countdownSeconds = null;
+        });
+        DeviceStateScope.read(context).startLiveCalibration();
+        return;
+      }
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        countdownSeconds = current - 1;
+      });
+    });
+  }
+
+  _GuidedCalibrationStep _calibrationStep(
+    DeviceState deviceState,
+    int? countdown,
+  ) {
     final result = deviceState.liveCalibrationResult;
     if (result?.valid == true) {
       return const _GuidedCalibrationStep(
-        index: 3,
+        index: 2,
         title: 'All set',
         body:
             'Stable MVS found. Review the values, then save this calibration.',
       );
     }
+    if (countdown != null) {
+      return _GuidedCalibrationStep(
+        index: 1,
+        title: 'Press in $countdown',
+        body:
+            'Get ready. Start squeezing when the countdown finishes, then hold your maximum comfortable force steady.',
+      );
+    }
     if (deviceState.isLiveCalibrationRecording) {
-      if (deviceState.liveCalibrationSampleCount <
-          DeviceState.liveCalibrationBaselineSamples) {
-        return const _GuidedCalibrationStep(
-          index: 1,
-          title: 'Resting baseline',
-          body: 'Hold still with the lightest comfortable contact.',
-        );
-      }
       return const _GuidedCalibrationStep(
-        index: 2,
+        index: 1,
         title: 'Maximum squeeze',
         body:
-            'Squeeze and hold at your maximum comfortable force. Recording stops automatically once the MVS is stable.',
+            'Hold maximum comfortable force. Recording stops automatically after the signal is stable for 3 seconds.',
       );
     }
     if (result != null && !result.valid) {
       return const _GuidedCalibrationStep(
-        index: 0,
+        index: 2,
         title: 'Try again',
         body:
-            'The last attempt was not stable enough. Reset your grip and begin again.',
+            'The last attempt was not stable enough. Reset your grip and recalibrate.',
       );
     }
     return const _GuidedCalibrationStep(
       index: 0,
       title: 'Get comfortable',
       body:
-          'Hold the soft device naturally. The app will collect a quiet baseline, then your maximum comfortable squeeze.',
+          'Hold the soft device naturally. The app uses the continuously tracked idle baseline, so this step only captures MVS.',
     );
   }
 
-  String _baselineProgressLabel(DeviceState deviceState) {
-    if (!deviceState.isLiveCalibrationRecording) {
-      return '--';
+  String _baselineLabel(DeviceState deviceState) {
+    final baseline =
+        deviceState.liveCalibrationBaselinePressure ??
+        deviceState.idleBaselinePressure;
+    if (baseline == null || !baseline.isFinite || baseline <= 0) {
+      return 'Tracking';
     }
-    final samples = deviceState.liveCalibrationSampleCount.clamp(
-      0,
-      DeviceState.liveCalibrationBaselineSamples,
-    );
-    return '$samples/${DeviceState.liveCalibrationBaselineSamples}';
+    return '${baseline.toStringAsFixed(0)} mbar';
   }
 
   String _mvsProgressLabel(DeviceState deviceState) {
-    if (!deviceState.isLiveCalibrationRecording ||
-        deviceState.liveCalibrationSampleCount <
-            DeviceState.liveCalibrationBaselineSamples) {
+    if (!deviceState.isLiveCalibrationRecording) {
       return 'Waiting';
     }
-    return 'Collecting';
+    final seconds = (deviceState.liveCalibrationSampleCount / 50).clamp(0, 3);
+    return '${seconds.toStringAsFixed(1)}s/3s';
   }
 }
 

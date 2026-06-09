@@ -52,7 +52,8 @@ class DeviceState extends ChangeNotifier {
   static const batteryStaleAfter = Duration(seconds: 30);
   static const reconnectDelay = Duration(seconds: 3);
   static const liveCalibrationBaselineSamples = 20;
-  static const liveCalibrationStableMvsSamples = 14;
+  static const idleBaselineWindowSamples = 50;
+  static const liveCalibrationStableMvsSamples = 150;
 
   DeviceConnectionStatus _status = DeviceConnectionStatus.disconnected;
   String? _connectedDeviceName;
@@ -78,6 +79,9 @@ class DeviceState extends ChangeNotifier {
   bool _isLiveCalibrationRecording = false;
   List<double> _liveCalibrationSamples = const [];
   LiveCalibrationResult? _liveCalibrationResult;
+  List<double> _idleBaselineSamples = const [];
+  double? _idleBaselinePressure;
+  double? _liveCalibrationBaselinePressure;
 
   DeviceConnectionStatus get status => _status;
   String? get connectedDeviceName => _connectedDeviceName;
@@ -99,6 +103,9 @@ class DeviceState extends ChangeNotifier {
   bool get isLiveCalibrationRecording => _isLiveCalibrationRecording;
   int get liveCalibrationSampleCount => _liveCalibrationSamples.length;
   LiveCalibrationResult? get liveCalibrationResult => _liveCalibrationResult;
+  double? get idleBaselinePressure => _idleBaselinePressure;
+  double? get liveCalibrationBaselinePressure =>
+      _liveCalibrationBaselinePressure;
   String get liveSavingStatus {
     if (_liveSettings.dataMode != DataMode.liveBle) {
       return 'Blocked: SD Card mode';
@@ -301,12 +308,16 @@ class DeviceState extends ChangeNotifier {
     _isLiveCalibrationRecording = true;
     _liveCalibrationSamples = [];
     _liveCalibrationResult = null;
+    _liveCalibrationBaselinePressure = _idleBaselinePressure ?? _latestPressure;
     notifyListeners();
   }
 
   LiveCalibrationResult stopLiveCalibration() {
     _isLiveCalibrationRecording = false;
-    final result = calculateLiveCalibration(_liveCalibrationSamples);
+    final result = calculateLiveMvsCalibration(
+      baselinePressure: _liveCalibrationBaselinePressure,
+      samples: _liveCalibrationSamples,
+    );
     _liveCalibrationResult = result;
     notifyListeners();
     return result;
@@ -316,6 +327,7 @@ class DeviceState extends ChangeNotifier {
     _isLiveCalibrationRecording = false;
     _liveCalibrationSamples = [];
     _liveCalibrationResult = null;
+    _liveCalibrationBaselinePressure = null;
     notifyListeners();
   }
 
@@ -325,13 +337,19 @@ class DeviceState extends ChangeNotifier {
     _lastReceivedAt = timestamp;
     if (_isLiveCalibrationRecording && pressure.isFinite) {
       _liveCalibrationSamples = [..._liveCalibrationSamples, pressure];
-      final result = autoStopLiveCalibrationResult(_liveCalibrationSamples);
+      final result = autoStopLiveCalibrationResult(
+        baselinePressure: _liveCalibrationBaselinePressure,
+        samples: _liveCalibrationSamples,
+      );
       if (result != null) {
         _isLiveCalibrationRecording = false;
         _liveCalibrationResult = result;
       }
       notifyListeners();
       return;
+    }
+    if (pressure.isFinite) {
+      _trackIdleBaseline(pressure);
     }
     final detector = _liveSqueezeDetector;
     if (_canSaveLiveEvents && detector != null) {
@@ -491,10 +509,14 @@ class DeviceState extends ChangeNotifier {
     );
   }
 
-  static LiveCalibrationResult? autoStopLiveCalibrationResult(
-    List<double> samples,
-  ) {
-    final result = calculateLiveCalibration(samples);
+  static LiveCalibrationResult? autoStopLiveCalibrationResult({
+    required double? baselinePressure,
+    required List<double> samples,
+  }) {
+    final result = calculateLiveMvsCalibration(
+      baselinePressure: baselinePressure,
+      samples: samples,
+    );
     if (!result.valid) {
       return null;
     }
@@ -508,6 +530,85 @@ class DeviceState extends ChangeNotifier {
       samplesUsed: result.samplesUsed,
       reason: 'Stable MVS found. Ready to save.',
     );
+  }
+
+  static LiveCalibrationResult calculateLiveMvsCalibration({
+    required double? baselinePressure,
+    required List<double> samples,
+  }) {
+    final baseline = baselinePressure;
+    if (baseline == null || !baseline.isFinite || baseline <= 0) {
+      return const LiveCalibrationResult(
+        valid: false,
+        baselinePressure: 0,
+        mvsPressure: 0,
+        samplesUsed: 0,
+        reason: 'Need a stable idle baseline before MVS calibration.',
+      );
+    }
+    final cleanSamples = samples.where((sample) => sample.isFinite).toList();
+    if (cleanSamples.length < liveCalibrationStableMvsSamples) {
+      return LiveCalibrationResult(
+        valid: false,
+        baselinePressure: baseline,
+        mvsPressure: 0,
+        samplesUsed: cleanSamples.length,
+        reason: 'Hold maximum squeeze steady for 3 seconds.',
+      );
+    }
+
+    final stableRegion = cleanSamples
+        .skip(cleanSamples.length - liveCalibrationStableMvsSamples)
+        .toList();
+    final stableResult = PressureProcessingService.assessBaseline(stableRegion);
+    if (!stableResult.isStable) {
+      return LiveCalibrationResult(
+        valid: false,
+        baselinePressure: baseline,
+        mvsPressure: stableResult.meanPressure,
+        samplesUsed: stableRegion.length,
+        reason: 'Hold maximum squeeze steady for 3 seconds.',
+      );
+    }
+    if (stableResult.meanPressure - baseline < 150) {
+      return LiveCalibrationResult(
+        valid: false,
+        baselinePressure: baseline,
+        mvsPressure: stableResult.meanPressure,
+        samplesUsed: stableRegion.length,
+        reason: 'Squeeze higher than the idle baseline.',
+      );
+    }
+
+    return LiveCalibrationResult(
+      valid: true,
+      baselinePressure: baseline,
+      mvsPressure: stableResult.meanPressure,
+      samplesUsed: stableRegion.length,
+      reason: 'Live calibration valid.',
+    );
+  }
+
+  void _trackIdleBaseline(double pressure) {
+    final samples = [..._idleBaselineSamples, pressure];
+    _idleBaselineSamples = samples.length > idleBaselineWindowSamples
+        ? samples.skip(samples.length - idleBaselineWindowSamples).toList()
+        : samples;
+    if (_idleBaselineSamples.length < idleBaselineWindowSamples) {
+      return;
+    }
+    final result = PressureProcessingService.assessBaseline(
+      _idleBaselineSamples,
+    );
+    if (!result.isStable) {
+      return;
+    }
+    final currentBaseline = _idleBaselinePressure;
+    if (currentBaseline != null &&
+        result.meanPressure > currentBaseline + 120) {
+      return;
+    }
+    _idleBaselinePressure = result.meanPressure;
   }
 
   @override
