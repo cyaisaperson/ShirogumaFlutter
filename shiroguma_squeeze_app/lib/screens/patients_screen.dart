@@ -117,81 +117,69 @@ class _PatientCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
-      tone: isActive ? AppCardTone.dark : AppCardTone.normal,
+      tone: isActive ? AppCardTone.coral : AppCardTone.normal,
       onTap: onTap,
-      child: Container(
-        decoration: isActive
-            ? BoxDecoration(
-                border: Border.all(color: AppColors.coral, width: 2),
-                borderRadius: BorderRadius.circular(18),
-              )
-            : null,
-        padding: isActive ? const EdgeInsets.all(10) : EdgeInsets.zero,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              backgroundColor: isActive ? AppColors.coral : AppColors.sand,
-              foregroundColor: isActive ? Colors.white : AppColors.coralDark,
-              child: Text(_initials(patient.name)),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          patient.name,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            backgroundColor: isActive ? Colors.white : AppColors.sand,
+            foregroundColor: AppColors.coralDark,
+            child: Text(_initials(patient.name)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        patient.name,
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      if (isActive)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: const Text(
-                            'Active',
-                            style: TextStyle(
-                              color: AppColors.coralDark,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      IconButton(
-                        tooltip: 'Edit ${patient.name}',
-                        onPressed: onEdit,
-                        icon: const Icon(Icons.edit_outlined),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${patient.patientCode}${patient.age == null ? '' : ' - Age ${patient.age}'}',
-                  ),
-                  const SizedBox(height: 8),
-                  Text(patient.description),
-                  const SizedBox(height: 8),
-                  Text(
-                    _mvsLabel(calibration),
-                    style: TextStyle(
-                      color: isActive ? Colors.white : AppColors.mutedText,
-                      fontWeight: FontWeight.w800,
                     ),
-                  ),
-                ],
-              ),
+                    if (isActive)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Text(
+                          'Active',
+                          style: TextStyle(
+                            color: AppColors.coralDark,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    IconButton(
+                      tooltip: 'Edit ${patient.name}',
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${patient.patientCode}${patient.age == null ? '' : ' - Age ${patient.age}'}',
+                ),
+                const SizedBox(height: 8),
+                Text(patient.description),
+                const SizedBox(height: 8),
+                Text(
+                  _mvsLabel(calibration),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -291,16 +279,23 @@ class _PatientDialogState extends State<_PatientDialog> {
               ),
               if (isEditing) ...[
                 const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      widget.onCalibrate(widget.patient!);
-                    },
-                    icon: const Icon(Icons.tune, size: 18),
-                    label: const Text('Calibrate MVS'),
-                  ),
+                Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        widget.onCalibrate(widget.patient!);
+                      },
+                      icon: const Icon(Icons.tune, size: 18),
+                      label: const Text('Calibrate MVS'),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: _confirmDelete,
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: const Text('Delete patient'),
+                    ),
+                  ],
                 ),
               ],
             ],
@@ -390,5 +385,39 @@ class _PatientDialogState extends State<_PatientDialog> {
       }
       Navigator.of(context).pop();
     }
+  }
+
+  Future<void> _confirmDelete() async {
+    final patient = widget.patient;
+    if (patient == null) {
+      return;
+    }
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Delete ${patient.name}?'),
+        content: const Text(
+          'This removes the patient profile, calibration, and saved pain events.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+    await AppStateScope.read(context).deletePatient(patient.id);
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pop();
   }
 }

@@ -254,6 +254,25 @@ void main() {
     expect(find.text('Anya Rahimi'), findsNothing);
   });
 
+  testWidgets('deletes an existing patient from edit mode', (tester) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Edit Marcus Tate'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete patient'), findsOneWidget);
+    await tester.tap(find.text('Delete patient'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete Marcus Tate?'), findsOneWidget);
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Marcus Tate'), findsNothing);
+  });
+
   testWidgets('home quick actions switch to main sections', (tester) async {
     await tester.pumpWidget(const ShirogumaApp());
     await tester.pumpAndSettle();

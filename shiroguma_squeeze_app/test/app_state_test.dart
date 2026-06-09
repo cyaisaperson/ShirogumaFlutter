@@ -107,4 +107,53 @@ void main() {
     expect(persistedEvent.deviceId, 'PressureTX');
     expect(persistedEvent.normalizedSas, 52);
   });
+
+  test(
+    'delete patient removes profile calibration events and active selection',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final state = AppState.seeded();
+      final patientId = state.patients.first.id;
+
+      await state.setActivePatient(patientId);
+      await state.saveCalibration(
+        patientId: patientId,
+        baselinePressure: 1000,
+        mvsPressure: 2000,
+        samplesUsed: 10,
+      );
+      await state.savePainEvent(
+        PainEvent(
+          id: 'event-delete-test',
+          patientId: patientId,
+          timestamp: DateTime(2026, 6, 4, 9, 30),
+          startTime: DateTime(2026, 6, 4, 9, 29, 55),
+          endTime: DateTime(2026, 6, 4, 9, 30, 5),
+          durationMs: 10000,
+          painLevel: 3,
+          peakPressure: 1400,
+          averagePeakPressure: 1388,
+          normalizedSas: 52,
+          baselinePressure: 1010,
+          mvsPressure: 2250,
+          source: 'live_ble',
+        ),
+      );
+
+      await state.deletePatient(patientId);
+
+      expect(state.patients.any((patient) => patient.id == patientId), isFalse);
+      expect(
+        state.calibrations.any(
+          (calibration) => calibration.patientId == patientId,
+        ),
+        isFalse,
+      );
+      expect(
+        state.painEvents.any((event) => event.patientId == patientId),
+        isFalse,
+      );
+      expect(state.settings.activePatientId, isNull);
+    },
+  );
 }

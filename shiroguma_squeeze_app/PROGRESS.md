@@ -16,6 +16,7 @@
 - Calibration flow revision: Baseline is continuously tracked from idle pressure, MVS calibration starts from Begin, shows a 3-2-1 countdown, then uses only a stable 3-second max-force region.
 - Calibration release-stop tweak: MVS recording now stops after pressure returns to baseline and computes MVS from the middle 10 high-force samples rather than requiring a perfectly stable full region.
 - Patient data polish: MVS now appears as simple patient-info text, normal patient cards no longer show a large calibration action, new patients prompt for MVS calibration, and active patient contrast is stronger.
+- Patient management polish: Edit patient mode now supports confirmed patient deletion, and active patient cards use the prior coral color treatment again.
 
 ## Modified Files
 - `lib/app.dart`
@@ -73,6 +74,7 @@
 - Data mode and BLE/detection settings persist locally.
 - Pain events support a future `externalSampleId` duplicate key for SD sync imports.
 - Patient ID uniqueness and generated `P-00x` behavior remain in place.
+- Deleting a patient removes the profile, its calibration, its saved pain events, and clears active patient selection if needed.
 - Current persistence uses `shared_preferences` JSON storage as the temporary fallback allowed in the plan.
 
 ## Known Issues

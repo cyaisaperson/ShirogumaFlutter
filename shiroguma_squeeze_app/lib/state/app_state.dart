@@ -239,6 +239,28 @@ class AppState extends ChangeNotifier {
     await _persistPatients();
   }
 
+  Future<void> deletePatient(String patientId) async {
+    final removedPatients = _patients.where(
+      (patient) => patient.id == patientId,
+    );
+    if (removedPatients.isEmpty) {
+      return;
+    }
+    _patients.removeWhere((patient) => patient.id == patientId);
+    _calibrations.removeWhere(
+      (calibration) => calibration.patientId == patientId,
+    );
+    _painEvents.removeWhere((event) => event.patientId == patientId);
+    if (_settings.activePatientId == patientId) {
+      _settings = _settings.copyWith(clearActivePatient: true);
+    }
+    notifyListeners();
+    await _persistPatients();
+    await _persistCalibrations();
+    await _persistPainEvents();
+    await _persistSettings();
+  }
+
   Future<void> saveCalibration({
     required String patientId,
     required double baselinePressure,
