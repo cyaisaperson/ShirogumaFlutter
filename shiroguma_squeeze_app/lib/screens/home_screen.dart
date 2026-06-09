@@ -22,10 +22,10 @@ class HomeScreen extends StatelessWidget {
     final settings = appState.settings;
     final deviceState = DeviceStateScope.watch(context);
     final batteryLabel = deviceState.batteryPercent == null
-        ? 'Battery --'
-        : 'Battery ${deviceState.batteryPercent}%${deviceState.isBatteryStale ? ' stale' : ''}';
+        ? '--%'
+        : '${deviceState.batteryPercent}%${deviceState.isBatteryStale ? ' stale' : ''}';
     final modeLabel = settings.dataMode == DataMode.liveBle ? 'Live' : 'SD';
-    final connectionLabel = 'Bluetooth ${deviceState.status.label}';
+    final connectionLabel = deviceState.status.label;
     final signalState = deviceState.isConnected ? 'streaming' : 'standby';
     final rawValue = deviceState.latestPressure == null
         ? '--'
@@ -180,10 +180,7 @@ class HomeScreen extends StatelessWidget {
                   style: TextStyle(color: AppColors.mutedText),
                 ),
                 const SizedBox(height: 14),
-                _DeviceInfoRow(
-                  label: 'Battery',
-                  value: batteryLabel.replaceFirst('Battery ', ''),
-                ),
+                _DeviceInfoRow(label: 'Battery', value: batteryLabel),
                 const SizedBox(height: 6),
                 const _DeviceInfoRow(label: 'Rate', value: '50 Hz'),
                 const SizedBox(height: 6),
@@ -442,27 +439,41 @@ class _HomeHeader extends StatelessWidget {
       ],
     );
 
-    final chips = Wrap(
-      alignment: WrapAlignment.end,
-      spacing: 8,
-      runSpacing: 8,
-      children: [
+    List<Widget> buildChips({required bool showMode}) {
+      return [
         _StatusChip(
           icon: Icons.battery_full,
           label: batteryLabel,
-          active: !batteryLabel.endsWith('--'),
+          active: batteryLabel != '--%',
         ),
+        const SizedBox(width: 8),
         _StatusChip(
           icon: Icons.bluetooth,
           label: connectionLabel,
-          active: connectionLabel.endsWith('Connected'),
+          active: connectionLabel == 'Connected',
         ),
-        _StatusChip(icon: Icons.circle, label: modeLabel, active: true),
-      ],
-    );
+        if (showMode) ...[
+          const SizedBox(width: 8),
+          _StatusChip(icon: Icons.circle, label: modeLabel, active: true),
+        ],
+      ];
+    }
+
+    Widget chipRow({required bool showMode}) {
+      return FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerRight,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: buildChips(showMode: showMode),
+        ),
+      );
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        final showMode = constraints.maxWidth >= 420;
+        final chips = chipRow(showMode: showMode);
         if (constraints.maxWidth < 560) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -478,7 +489,9 @@ class _HomeHeader extends StatelessWidget {
           children: [
             Expanded(child: titleBlock),
             const SizedBox(width: 16),
-            Flexible(child: chips),
+            Flexible(
+              child: Align(alignment: Alignment.topRight, child: chips),
+            ),
           ],
         );
       },

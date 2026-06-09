@@ -16,9 +16,9 @@ void main() {
     expect(find.text('Patients'), findsWidgets);
     expect(find.text('Data'), findsWidgets);
     expect(find.text('Settings'), findsWidgets);
-    expect(find.text('Bluetooth Disconnected'), findsOneWidget);
+    expect(find.text('Disconnected'), findsOneWidget);
     expect(find.text('Live'), findsOneWidget);
-    expect(find.text('Battery --'), findsOneWidget);
+    expect(find.text('--%'), findsWidgets);
     await tester.scrollUntilVisible(find.text('DEVICE'), 300);
     await tester.pumpAndSettle();
     expect(find.text('Browse devices'), findsOneWidget);
@@ -89,7 +89,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('SD'), findsOneWidget);
-    expect(find.text('Battery --'), findsOneWidget);
+    expect(find.text('--%'), findsWidgets);
     await tester.scrollUntilVisible(find.text('DEVICE'), 300);
     await tester.pumpAndSettle();
     expect(find.text('DEVICE'), findsOneWidget);
