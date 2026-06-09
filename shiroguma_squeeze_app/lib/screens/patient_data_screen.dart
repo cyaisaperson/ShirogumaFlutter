@@ -1385,7 +1385,7 @@ class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
         index: 1,
         title: 'Press in $countdown',
         body:
-            'Get ready. Start squeezing when the countdown finishes, then hold your maximum comfortable force steady.',
+            'Get ready. Squeeze when the countdown finishes, hold for 3 seconds, then release.',
       );
     }
     if (deviceState.isLiveCalibrationRecording) {
@@ -1393,7 +1393,7 @@ class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
         index: 1,
         title: 'Maximum squeeze',
         body:
-            'Hold maximum comfortable force. Recording stops automatically after the signal is stable for 3 seconds.',
+            'Squeeze for 3 seconds, then release. Recording stops when pressure returns to baseline.',
       );
     }
     if (result != null && !result.valid) {
@@ -1427,7 +1427,7 @@ class _LiveCalibrationDialogState extends State<_LiveCalibrationDialog> {
       return 'Waiting';
     }
     final seconds = (deviceState.liveCalibrationSampleCount / 50).clamp(0, 3);
-    return '${seconds.toStringAsFixed(1)}s/3s';
+    return '${seconds.toStringAsFixed(1)}s';
   }
 }
 

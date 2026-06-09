@@ -32,52 +32,54 @@ void main() {
   });
 
   test(
-    'live calibration uses idle baseline and stable three second MVS region',
+    'live calibration uses middle hold samples after release to baseline',
     () {
-      final shortHold = List<double>.generate(149, (index) => 2250 + index % 4);
-      final stableHold = List<double>.generate(
-        150,
-        (index) => 2250 + index % 4,
-      );
-
-      final shortResult = DeviceState.calculateLiveMvsCalibration(
-        baselinePressure: 1000,
-        samples: shortHold,
-      );
-      expect(shortResult.valid, isFalse);
-      expect(shortResult.reason, contains('Hold maximum squeeze steady'));
+      final samples = <double>[
+        1010,
+        1250,
+        1600,
+        1900,
+        2200,
+        ...List<double>.generate(20, (index) => 2240.0 + index),
+        2100,
+        1700,
+        1300,
+        1040,
+        1020,
+        1010,
+        1008,
+        1006,
+      ];
 
       final result = DeviceState.calculateLiveMvsCalibration(
         baselinePressure: 1000,
-        samples: stableHold,
+        samples: samples,
       );
 
       expect(result.valid, isTrue);
       expect(result.baselinePressure, 1000);
-      expect(result.mvsPressure, closeTo(2251.5, 1));
-      expect(result.samplesUsed, 150);
+      expect(result.mvsPressure, closeTo(2249.5, 0.1));
+      expect(result.samplesUsed, 10);
     },
   );
 
-  test('live calibration auto-stop waits for stable max-force region', () {
-    final ramp = <double>[1015, 1210, 1800, 2240, 2260, 2280, 2300];
-    final unstableHold = List<double>.generate(
-      150,
-      (index) => index.isEven ? 2200 : 2350,
-    );
-    final stableHold = List<double>.generate(150, (index) => 2280 + index % 5);
+  test('live calibration auto-stops after squeeze returns to baseline', () {
+    final ramp = <double>[1015, 1210, 1800, 2240, 2260, 2280];
+    final hold = List<double>.generate(20, (index) => 2260 + index % 6);
+    final release = <double>[1900, 1500, 1200];
+    final baselineReturn = List<double>.generate(10, (index) => 1020.0 + index);
 
     expect(
       DeviceState.autoStopLiveCalibrationResult(
         baselinePressure: 1000,
-        samples: [...ramp, ...unstableHold],
+        samples: [...ramp, ...hold, ...release],
       ),
       isNull,
     );
 
     final result = DeviceState.autoStopLiveCalibrationResult(
       baselinePressure: 1000,
-      samples: [...ramp, ...stableHold],
+      samples: [...ramp, ...hold, ...release, ...baselineReturn],
     );
 
     expect(result, isNotNull);

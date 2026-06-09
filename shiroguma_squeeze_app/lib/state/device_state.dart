@@ -53,7 +53,8 @@ class DeviceState extends ChangeNotifier {
   static const reconnectDelay = Duration(seconds: 3);
   static const liveCalibrationBaselineSamples = 20;
   static const idleBaselineWindowSamples = 50;
-  static const liveCalibrationStableMvsSamples = 150;
+  static const liveCalibrationMiddleMvsSamples = 10;
+  static const liveCalibrationReturnToBaselineSamples = 5;
 
   DeviceConnectionStatus _status = DeviceConnectionStatus.disconnected;
   String? _connectedDeviceName;
@@ -520,9 +521,6 @@ class DeviceState extends ChangeNotifier {
     if (!result.valid) {
       return null;
     }
-    if (result.samplesUsed < liveCalibrationStableMvsSamples) {
-      return null;
-    }
     return LiveCalibrationResult(
       valid: true,
       baselinePressure: result.baselinePressure,
@@ -547,46 +545,93 @@ class DeviceState extends ChangeNotifier {
       );
     }
     final cleanSamples = samples.where((sample) => sample.isFinite).toList();
-    if (cleanSamples.length < liveCalibrationStableMvsSamples) {
+    final squeezeRegion = _completedSqueezeRegion(
+      baselinePressure: baseline,
+      samples: cleanSamples,
+    );
+    if (squeezeRegion == null) {
       return LiveCalibrationResult(
         valid: false,
         baselinePressure: baseline,
         mvsPressure: 0,
         samplesUsed: cleanSamples.length,
-        reason: 'Hold maximum squeeze steady for 3 seconds.',
+        reason: 'Squeeze for 3 seconds, then release to baseline.',
       );
     }
 
-    final stableRegion = cleanSamples
-        .skip(cleanSamples.length - liveCalibrationStableMvsSamples)
+    final peakPressure = squeezeRegion.reduce(
+      (current, sample) => sample > current ? sample : current,
+    );
+    final highThreshold = baseline + (peakPressure - baseline) * 0.85;
+    final highForceRegion = squeezeRegion
+        .where((sample) => sample >= highThreshold)
         .toList();
-    final stableResult = PressureProcessingService.assessBaseline(stableRegion);
-    if (!stableResult.isStable) {
+    if (highForceRegion.length < liveCalibrationMiddleMvsSamples) {
       return LiveCalibrationResult(
         valid: false,
         baselinePressure: baseline,
-        mvsPressure: stableResult.meanPressure,
-        samplesUsed: stableRegion.length,
-        reason: 'Hold maximum squeeze steady for 3 seconds.',
+        mvsPressure: peakPressure,
+        samplesUsed: highForceRegion.length,
+        reason: 'Squeeze for 3 seconds, then release to baseline.',
       );
     }
-    if (stableResult.meanPressure - baseline < 150) {
-      return LiveCalibrationResult(
-        valid: false,
-        baselinePressure: baseline,
-        mvsPressure: stableResult.meanPressure,
-        samplesUsed: stableRegion.length,
-        reason: 'Squeeze higher than the idle baseline.',
-      );
-    }
+    final middleRegion = _middleSamples(
+      highForceRegion,
+      liveCalibrationMiddleMvsSamples,
+    );
+    final mvsPressure =
+        middleRegion.reduce((a, b) => a + b) / middleRegion.length;
 
     return LiveCalibrationResult(
       valid: true,
       baselinePressure: baseline,
-      mvsPressure: stableResult.meanPressure,
-      samplesUsed: stableRegion.length,
+      mvsPressure: mvsPressure,
+      samplesUsed: middleRegion.length,
       reason: 'Live calibration valid.',
     );
+  }
+
+  static List<double>? _completedSqueezeRegion({
+    required double baselinePressure,
+    required List<double> samples,
+  }) {
+    final squeezeThreshold = baselinePressure + 150;
+    final releaseThreshold = baselinePressure + 80;
+    final startIndex = samples.indexWhere(
+      (sample) => sample >= squeezeThreshold,
+    );
+    if (startIndex < 0) {
+      return null;
+    }
+    var releaseRun = 0;
+    for (
+      var index = startIndex + liveCalibrationMiddleMvsSamples;
+      index < samples.length;
+      index++
+    ) {
+      if (samples[index] <= releaseThreshold) {
+        releaseRun += 1;
+      } else {
+        releaseRun = 0;
+      }
+      if (releaseRun >= liveCalibrationReturnToBaselineSamples) {
+        final endIndex = index - releaseRun + 1;
+        final squeezeRegion = samples.sublist(startIndex, endIndex);
+        if (squeezeRegion.length < liveCalibrationMiddleMvsSamples) {
+          return null;
+        }
+        return squeezeRegion;
+      }
+    }
+    return null;
+  }
+
+  static List<double> _middleSamples(List<double> samples, int count) {
+    if (samples.length <= count) {
+      return List.of(samples);
+    }
+    final start = ((samples.length - count) / 2).floor();
+    return samples.sublist(start, start + count);
   }
 
   void _trackIdleBaseline(double pressure) {
