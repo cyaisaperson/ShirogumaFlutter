@@ -199,9 +199,15 @@ class BleService {
     debugPrint(
       '[BLE] Battery notification subscription enabled: $batteryCharacteristicUuid',
     );
-    _batterySubscription = _batteryCharacteristic!.lastValueStream.listen(
-      (value) => onBattery(parseBatteryBytes(value)),
-    );
+    _batterySubscription = _batteryCharacteristic!.lastValueStream.listen((
+      value,
+    ) {
+      final batteryPercent = parseBatteryBytes(value);
+      debugPrint(
+        '[BLE] Battery notification received: raw=$value, percent=$batteryPercent',
+      );
+      onBattery(batteryPercent);
+    });
   }
 
   Future<void> disconnect() async {
