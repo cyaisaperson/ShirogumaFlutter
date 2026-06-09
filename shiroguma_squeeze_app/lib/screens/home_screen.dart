@@ -196,6 +196,17 @@ class HomeScreen extends StatelessWidget {
                     value: deviceState.lastReceivedAt!.toIso8601String(),
                   ),
                 ],
+                if (deviceState.batteryPercent != null &&
+                    deviceState.batteryPercent! < 20) ...[
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Battery low. Charge the device before long sessions.',
+                    style: TextStyle(
+                      color: AppColors.coralDark,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
                 if (deviceState.errorMessage != null) ...[
                   const SizedBox(height: 10),
                   Text(

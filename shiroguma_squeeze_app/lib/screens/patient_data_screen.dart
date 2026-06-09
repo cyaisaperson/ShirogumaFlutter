@@ -136,6 +136,12 @@ class _PatientDataContent extends StatelessWidget {
         const SizedBox(height: 16),
         FilledButton.icon(
           onPressed: () async {
+            if (events.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('No events to export')),
+              );
+              return;
+            }
             final exportedFile = await CsvExportService.exportPatientCsv(
               patient: patient,
               calibration: calibration,

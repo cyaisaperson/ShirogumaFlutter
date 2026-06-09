@@ -14,6 +14,7 @@
 - Phase 17: Actual BLE battery value path confirmed; battery notifications log raw bytes and parsed percentage while the UI shows real state or `--%`.
 - Phase 21: Required UI polish pass moved Live MVS close control to the dialog header and only shows Save calibration once a valid final result exists.
 - Phase 22: Removed completed-feature fake Home values by showing connected device/preferred device from state and replacing hard-coded sample rate with `--`.
+- Phase 23: Added guardrails for common BLE errors, low battery warning, and no-events CSV export.
 - Calibration UX checkpoint: Live MVS calibration now uses a guided step flow with auto-stop after stable peak samples, and patient cards show MVS info plus a calibration shortcut.
 - Calibration stability tweak: Live MVS auto-stop now waits for a longer stable max-force hold before accepting the calibration.
 - Calibration button-flow tweak: Live MVS calibration starts automatically when opened and shows Recalibrate only after recording reaches a result.
@@ -54,7 +55,7 @@
 
 ## Current BLE Status
 - `flutter_blue_plus` is installed.
-- `BleService` can scan for `PressureTX`, connect, discover services, subscribe to pressure and battery notifications, parse notification bytes, and log raw/parsed battery notifications for hardware debugging.
+- `BleService` can scan for `PressureTX`, connect, discover services, subscribe to pressure and battery notifications, parse notification bytes, log raw/parsed battery notifications, and surface readable permission/offline/service-missing errors.
 - Home shows compact header chips for battery percentage, BLE connection status, and mode; the device card shows connected name when available, latest pressure, battery percentage, last update, connect/disconnect control, and a Bluetooth device browser for choosing a scanned device manually.
 - Live BLE pressure samples are buffered into squeeze segments, normalized with the active patient calibration, and saved as `live_ble` pain events only when saving is eligible.
 - Unexpected disconnects move the app into `Reconnecting`, retry with the last known device/settings while the app is open, and mark battery data stale after 30 seconds without updates.
@@ -83,7 +84,7 @@
 
 ## Known Issues
 - Drift/SQLite has not been introduced yet.
-- CSV export writes to the system temp directory and reports the file path in a snackbar.
+- CSV export writes to the system temp directory and reports the file path in a snackbar; patients with no pain events show `No events to export`.
 - SD Card Sync UI is visible, intentionally disabled as `Coming later`, and backed by placeholder sync service/state architecture.
 - BLE hardware testing with the physical XIAO is still pending.
 - Runtime permission prompting may need refinement after Android hardware testing.
@@ -92,7 +93,8 @@
 - Live MVS calibration still requires the user to explicitly save after auto-stop so patient calibration is not overwritten by accident.
 
 ## Exact Next Step
-- Phase 23: Fool-Proofing and Robust Error Handling.
+- Phase 19: Bubble Timeline Zoom and X-Axis Scaling, or Phase 20 Home Squeeze Circle Radius. Phase 18 auto-baseline is intentionally skipped for now because current continuous idle baseline behavior is working well.
+
 
 
 

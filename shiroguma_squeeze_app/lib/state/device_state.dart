@@ -276,7 +276,19 @@ class DeviceState extends ChangeNotifier {
 
   static String bleErrorMessage(Object error, AppSettings settings) {
     if (error is TimeoutException) {
-      return 'No Shiroguma Bluetooth device found. Auto connect looks for ${BleService.defaultDeviceName}; use Browse devices to choose from nearby Bluetooth devices.';
+      return '${BleService.defaultDeviceName} not found. Make sure the device is on and not connected elsewhere.';
+    }
+    if (error is StateError) {
+      final message = error.message.toLowerCase();
+      if (message.contains('permission')) {
+        return 'Bluetooth permission missing. Allow Bluetooth permissions and retry.';
+      }
+      if (message.contains('not enabled')) {
+        return 'Bluetooth is off or unavailable. Turn Bluetooth on and retry.';
+      }
+      if (message.contains('characteristic')) {
+        return 'Device found but pressure service not available.';
+      }
     }
     return error.toString();
   }

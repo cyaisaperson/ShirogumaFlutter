@@ -60,9 +60,33 @@ void main() {
       const AppSettings(),
     );
 
-    expect(message, contains('No Shiroguma Bluetooth device found'));
+    expect(message, contains('PressureTX not found'));
     expect(message, contains('PressureTX'));
     expect(message, isNot(contains('TimeoutException')));
+  });
+
+  test('formats common BLE setup errors for users', () {
+    expect(
+      DeviceState.bleErrorMessage(
+        StateError('Bluetooth permission denied: BlePermission.bluetoothScan'),
+        const AppSettings(),
+      ),
+      contains('Bluetooth permission missing'),
+    );
+    expect(
+      DeviceState.bleErrorMessage(
+        StateError('Bluetooth is not enabled.'),
+        const AppSettings(),
+      ),
+      contains('Bluetooth is off or unavailable'),
+    );
+    expect(
+      DeviceState.bleErrorMessage(
+        StateError('Characteristic abcd not found.'),
+        const AppSettings(),
+      ),
+      contains('pressure service not available'),
+    );
   });
 
   test('selects Android BLE permissions by SDK version', () {
