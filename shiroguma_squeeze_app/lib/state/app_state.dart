@@ -203,7 +203,7 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  Future<void> addPatient({
+  Future<Patient> addPatient({
     required String name,
     required String patientCode,
     required String description,
@@ -224,6 +224,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     await _persistPatients();
     await _persistSettings();
+    return patient;
   }
 
   Future<void> updatePatient(Patient updatedPatient) async {

@@ -15,6 +15,7 @@
 - Calibration button-flow tweak: Live MVS calibration starts automatically when opened and shows Recalibrate only after recording reaches a result.
 - Calibration flow revision: Baseline is continuously tracked from idle pressure, MVS calibration starts from Begin, shows a 3-2-1 countdown, then uses only a stable 3-second max-force region.
 - Calibration release-stop tweak: MVS recording now stops after pressure returns to baseline and computes MVS from the middle 10 high-force samples rather than requiring a perfectly stable full region.
+- Patient data polish: MVS now appears as simple patient-info text, normal patient cards no longer show a large calibration action, new patients prompt for MVS calibration, and active patient contrast is stronger.
 
 ## Modified Files
 - `lib/app.dart`
@@ -55,6 +56,7 @@
 - Live MVS calibration can record pressure samples from the BLE stream, evaluate baseline stability, compute MVS, and save valid calibration values to the active patient.
 - Live MVS calibration now guides the user through Get comfortable, Resting baseline, Maximum squeeze, and All set states; recording auto-stops once a longer stable MVS plateau is detected.
 - Live MVS calibration skips a separate baseline step, snapshots the continuously tracked idle baseline, uses Begin plus a 3-2-1 countdown, stops after release back to baseline, and averages the middle high-force samples for MVS.
+- Live pain-level detection remains blocked until the active patient has an MVS calibration.
 - Settings exposes Live BLE / SD Card Sync mode selection, BLE UUID values, connection status, and battery status.
 - Android manifest includes Bluetooth scan/connect permissions.
 - Device contract from the continuation plan is noted for Phase 11:

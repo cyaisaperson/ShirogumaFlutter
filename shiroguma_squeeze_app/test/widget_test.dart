@@ -121,23 +121,22 @@ void main() {
     await tester.scrollUntilVisible(find.text('Joud Karam'), 300);
     await tester.pumpAndSettle();
     expect(find.text('Joud Karam'), findsOneWidget);
-    expect(find.text('MVS calibration'), findsWidgets);
-    expect(find.text('View calibration'), findsWidgets);
+    expect(find.textContaining('MVS:'), findsWidgets);
+    expect(find.text('View calibration'), findsNothing);
   });
 
-  testWidgets('patient card calibration shortcut opens patient data', (
+  testWidgets('edit patient mode exposes compact calibration shortcut', (
     tester,
   ) async {
     await tester.pumpWidget(const ShirogumaApp());
 
     await tester.tap(find.text('Patients').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('View calibration').first);
+    await tester.tap(find.byTooltip('Edit Anya Rahimi'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Patient Data'), findsOneWidget);
-    expect(find.text('Anya Rahimi'), findsOneWidget);
-    expect(find.text('Calibration'), findsOneWidget);
+    expect(find.text('Calibrate MVS'), findsOneWidget);
+    expect(find.text('Edit patient'), findsOneWidget);
   });
 
   testWidgets('selecting a patient updates active patient views', (
@@ -198,8 +197,14 @@ void main() {
     await tester.tap(find.text('Save patient'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Calibrate MVS?'), findsOneWidget);
+    expect(find.text('MVS: Not calibrated'), findsOneWidget);
+    await tester.tap(find.text('Skip calibration'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Mina Chen'), findsOneWidget);
     expect(find.textContaining('P-004'), findsOneWidget);
+    expect(find.text('MVS: Not calibrated'), findsWidgets);
   });
 
   testWidgets('rejects duplicate patient IDs in patient dialog', (
@@ -237,6 +242,7 @@ void main() {
     await tester.tap(find.byTooltip('Edit Anya Rahimi'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Calibrate MVS'), findsOneWidget);
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Name'),
       'Anya Sato',

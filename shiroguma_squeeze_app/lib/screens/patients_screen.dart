@@ -42,10 +42,6 @@ class PatientsScreen extends StatelessWidget {
               isActive: appState.settings.activePatientId == patient.id,
               onTap: () =>
                   AppStateScope.read(context).setActivePatient(patient.id),
-              onOpenData: () {
-                AppStateScope.read(context).setActivePatient(patient.id);
-                onNavigate?.call(2);
-              },
               onEdit: () => _showPatientDialog(context, patient: patient),
             ),
             const SizedBox(height: 12),
@@ -59,9 +55,46 @@ class PatientsScreen extends StatelessWidget {
     BuildContext context, {
     Patient? patient,
   }) async {
+    final createdPatient = await showDialog<Patient>(
+      context: context,
+      builder: (dialogContext) => _PatientDialog(
+        patient: patient,
+        onCalibrate: (patient) => _openPatientData(context, patient),
+      ),
+    );
+    if (!context.mounted || patient != null || createdPatient == null) {
+      return;
+    }
+    await _showMvsPrompt(context, createdPatient);
+  }
+
+  void _openPatientData(BuildContext context, Patient patient) {
+    AppStateScope.read(context).setActivePatient(patient.id);
+    onNavigate?.call(2);
+  }
+
+  Future<void> _showMvsPrompt(BuildContext context, Patient patient) async {
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => _PatientDialog(patient: patient),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Calibrate MVS?'),
+        content: Text(
+          '${patient.name} was added. MVS: Not calibrated. Live pain-level detection stays blocked until MVS is calibrated.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Skip calibration'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _openPatientData(context, patient);
+            },
+            child: const Text('Calibrate MVS'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -72,7 +105,6 @@ class _PatientCard extends StatelessWidget {
     required this.calibration,
     required this.isActive,
     required this.onTap,
-    required this.onOpenData,
     required this.onEdit,
   });
 
@@ -80,85 +112,86 @@ class _PatientCard extends StatelessWidget {
   final Calibration? calibration;
   final bool isActive;
   final VoidCallback onTap;
-  final VoidCallback onOpenData;
   final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
     return AppCard(
-      tone: isActive ? AppCardTone.coral : AppCardTone.normal,
+      tone: isActive ? AppCardTone.dark : AppCardTone.normal,
       onTap: onTap,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            backgroundColor: isActive ? Colors.white : AppColors.sand,
-            foregroundColor: AppColors.coralDark,
-            child: Text(_initials(patient.name)),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        patient.name,
-                        style: Theme.of(context).textTheme.titleMedium,
+      child: Container(
+        decoration: isActive
+            ? BoxDecoration(
+                border: Border.all(color: AppColors.coral, width: 2),
+                borderRadius: BorderRadius.circular(18),
+              )
+            : null,
+        padding: isActive ? const EdgeInsets.all(10) : EdgeInsets.zero,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              backgroundColor: isActive ? AppColors.coral : AppColors.sand,
+              foregroundColor: isActive ? Colors.white : AppColors.coralDark,
+              child: Text(_initials(patient.name)),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          patient.name,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                       ),
-                    ),
-                    if (isActive)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: const Text(
-                          'Active',
-                          style: TextStyle(
-                            color: AppColors.coralDark,
-                            fontWeight: FontWeight.w800,
+                      if (isActive)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: const Text(
+                            'Active',
+                            style: TextStyle(
+                              color: AppColors.coralDark,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
+                      IconButton(
+                        tooltip: 'Edit ${patient.name}',
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit_outlined),
                       ),
-                    IconButton(
-                      tooltip: 'Edit ${patient.name}',
-                      onPressed: onEdit,
-                      icon: const Icon(Icons.edit_outlined),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${patient.patientCode}${patient.age == null ? '' : ' - Age ${patient.age}'}',
-                ),
-                const SizedBox(height: 8),
-                Text(patient.description),
-                const SizedBox(height: 12),
-                _CalibrationSummary(calibration: calibration),
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton.icon(
-                    onPressed: onOpenData,
-                    icon: const Icon(Icons.tune),
-                    label: Text(
-                      calibration == null
-                          ? 'Open calibration'
-                          : 'View calibration',
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${patient.patientCode}${patient.age == null ? '' : ' - Age ${patient.age}'}',
+                  ),
+                  const SizedBox(height: 8),
+                  Text(patient.description),
+                  const SizedBox(height: 8),
+                  Text(
+                    _mvsLabel(calibration),
+                    style: TextStyle(
+                      color: isActive ? Colors.white : AppColors.mutedText,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -170,67 +203,20 @@ class _PatientCard extends StatelessWidget {
     }
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
-}
 
-class _CalibrationSummary extends StatelessWidget {
-  const _CalibrationSummary({required this.calibration});
-
-  final Calibration? calibration;
-
-  @override
-  Widget build(BuildContext context) {
-    final calibration = this.calibration;
-    final labelStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-      color: AppColors.mutedText,
-      fontWeight: FontWeight.w800,
-      letterSpacing: 0.4,
-    );
-    final valueStyle = Theme.of(
-      context,
-    ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.sand),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.speed, color: AppColors.coralDark, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('MVS calibration', style: labelStyle),
-                const SizedBox(height: 2),
-                Text(
-                  calibration == null
-                      ? 'Not calibrated'
-                      : '${calibration.mvsPressure.toStringAsFixed(0)} mbar',
-                  style: valueStyle,
-                ),
-              ],
-            ),
-          ),
-          if (calibration != null)
-            Text(
-              'Baseline ${calibration.baselinePressure.toStringAsFixed(0)}',
-              style: const TextStyle(color: AppColors.mutedText),
-            ),
-        ],
-      ),
-    );
+  String _mvsLabel(Calibration? calibration) {
+    if (calibration == null) {
+      return 'MVS: Not calibrated';
+    }
+    return 'MVS: ${calibration.mvsPressure.toStringAsFixed(0)} mbar';
   }
 }
 
 class _PatientDialog extends StatefulWidget {
-  const _PatientDialog({this.patient});
+  const _PatientDialog({this.patient, required this.onCalibrate});
 
   final Patient? patient;
+  final ValueChanged<Patient> onCalibrate;
 
   @override
   State<_PatientDialog> createState() => _PatientDialogState();
@@ -303,6 +289,20 @@ class _PatientDialogState extends State<_PatientDialog> {
                 minLines: 2,
                 maxLines: 4,
               ),
+              if (isEditing) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      widget.onCalibrate(widget.patient!);
+                    },
+                    icon: const Icon(Icons.tune, size: 18),
+                    label: const Text('Calibrate MVS'),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -365,12 +365,16 @@ class _PatientDialogState extends State<_PatientDialog> {
     final patient = widget.patient;
 
     if (patient == null) {
-      await appState.addPatient(
+      final createdPatient = await appState.addPatient(
         name: nameController.text,
         patientCode: patientCodeController.text,
         age: age,
         description: descriptionController.text,
       );
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(createdPatient);
     } else {
       await appState.updatePatient(
         patient.copyWith(
@@ -381,11 +385,10 @@ class _PatientDialogState extends State<_PatientDialog> {
           description: descriptionController.text.trim(),
         ),
       );
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop();
     }
-
-    if (!mounted) {
-      return;
-    }
-    Navigator.of(context).pop();
   }
 }

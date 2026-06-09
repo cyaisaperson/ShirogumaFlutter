@@ -35,7 +35,7 @@ class _PatientDataScreenState extends State<PatientDataScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
         children: [
           Text('Patient Data', style: Theme.of(context).textTheme.displaySmall),
-          const SizedBox(height: 18),
+          const SizedBox(height: 6),
           if (patient == null)
             const AppCard(
               tone: AppCardTone.sand,
@@ -116,6 +116,7 @@ class _PatientDataContent extends StatelessWidget {
       children: [
         _PatientSummaryCard(
           patient: patient,
+          calibration: calibration,
           selectedRange: selectedRange,
           selectedDate: selectedDate,
           onRangeChanged: onRangeChanged,
@@ -208,6 +209,7 @@ class _PatientDataContent extends StatelessWidget {
 class _PatientSummaryCard extends StatelessWidget {
   const _PatientSummaryCard({
     required this.patient,
+    required this.calibration,
     required this.selectedRange,
     required this.selectedDate,
     required this.onRangeChanged,
@@ -219,6 +221,7 @@ class _PatientSummaryCard extends StatelessWidget {
   });
 
   final Patient patient;
+  final Calibration? calibration;
   final String selectedRange;
   final DateTime selectedDate;
   final ValueChanged<String> onRangeChanged;
@@ -246,6 +249,14 @@ class _PatientSummaryCard extends StatelessWidget {
             '${patient.patientCode}${patient.age == null ? '' : '  •  Age ${patient.age}'}',
             style: const TextStyle(color: AppColors.mutedText),
             overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _mvsLabel(calibration),
+            style: const TextStyle(
+              color: AppColors.coralDark,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 18),
           Center(
@@ -374,6 +385,13 @@ class _PatientSummaryCard extends StatelessWidget {
     }
 
     return '${_monthName(start.month)} ${start.day} - ${_monthName(end.month)} ${end.day}';
+  }
+
+  static String _mvsLabel(Calibration? calibration) {
+    if (calibration == null) {
+      return 'MVS: Not calibrated';
+    }
+    return 'MVS: ${calibration.mvsPressure.toStringAsFixed(0)} mbar';
   }
 
   static String _weekdayName(int weekday) {
