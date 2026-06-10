@@ -26,6 +26,7 @@
 - Current UI Fix Phase 2: Centered Patient Data bubble graph week labels in day buckets and month labels in date buckets.
 - Current UI Fix Phase 2 follow-up: Corrected month final-bucket labels and year labels so both use bucket-center positions.
 - Current UI Fix Phase 3: Moved patient deletion from the edit dialog body row to a top-right delete icon in the edit dialog header.
+- Current UI Fix Phase 4: Improved BLE scan timeout copy to show compact common causes. The connection label change was skipped per user instruction.
 
 ## Modified Files
 - `lib/app.dart`
@@ -106,9 +107,13 @@
   - `flutter test test\widget_test.dart` passed.
   - `flutter test` passed.
   - `flutter analyze` passed with no issues.
+- Phase 4 checks completed:
+  - `flutter test test\ble_service_test.dart` passed.
+  - `flutter test` passed.
+  - `flutter analyze` passed with no issues.
 
 ## Exact Next Step
-- Next phase: Phase 4, improve Home connection label and BLE connection failure message.
+- Next phase: Phase 5, hide MVS from patient cards without deleting stored calibration data.
 
 
 

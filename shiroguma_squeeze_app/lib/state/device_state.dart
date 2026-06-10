@@ -276,7 +276,7 @@ class DeviceState extends ChangeNotifier {
 
   static String bleErrorMessage(Object error, AppSettings settings) {
     if (error is TimeoutException) {
-      return '${BleService.defaultDeviceName} not found. Make sure the device is on and not connected elsewhere.';
+      return 'No device found. Check that it is turned on, nearby, and charged.';
     }
     if (error is StateError) {
       final message = error.message.toLowerCase();

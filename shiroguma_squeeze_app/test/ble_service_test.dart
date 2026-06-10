@@ -60,8 +60,10 @@ void main() {
       const AppSettings(),
     );
 
-    expect(message, contains('PressureTX not found'));
-    expect(message, contains('PressureTX'));
+    expect(
+      message,
+      'No device found. Check that it is turned on, nearby, and charged.',
+    );
     expect(message, isNot(contains('TimeoutException')));
   });
 
