@@ -257,7 +257,9 @@ class HomeScreen extends StatelessWidget {
                             : () {
                                 if (deviceState.status ==
                                     DeviceConnectionStatus.reconnecting) {
-                                  DeviceStateScope.read(context).reconnectNow();
+                                  DeviceStateScope.read(
+                                    context,
+                                  ).reconnectNow(settings);
                                 } else {
                                   DeviceStateScope.read(
                                     context,

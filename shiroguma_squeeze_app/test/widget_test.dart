@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shiroguma_squeeze_app/app.dart';
+import 'package:shiroguma_squeeze_app/models/app_settings.dart';
+import 'package:shiroguma_squeeze_app/screens/home_screen.dart';
+import 'package:shiroguma_squeeze_app/state/app_state.dart';
+import 'package:shiroguma_squeeze_app/state/app_state_scope.dart';
+import 'package:shiroguma_squeeze_app/state/device_state.dart';
+import 'package:shiroguma_squeeze_app/state/device_state_scope.dart';
 
 void main() {
   setUp(() {
@@ -27,6 +33,32 @@ void main() {
     expect(find.text('Preferred: PressureTX'), findsOneWidget);
     expect(find.text('Live saving:'), findsOneWidget);
     expect(find.text('Blocked: BLE disconnected'), findsOneWidget);
+  });
+
+  testWidgets('home reconnect button retries with current settings', (
+    tester,
+  ) async {
+    final deviceState = _ReconnectButtonDeviceState();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppStateScope(
+          appState: AppState.seeded(),
+          child: DeviceStateScope(
+            deviceState: deviceState,
+            child: const HomeScreen(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.scrollUntilVisible(find.text('Reconnect'), 300);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reconnect'));
+    await tester.pump();
+
+    expect(deviceState.reconnectCalls, 1);
+    expect(deviceState.fallbackSettings?.preferredDeviceName, 'PressureTX');
   });
 
   testWidgets('bottom navigation switches between primary pages', (
@@ -807,4 +839,21 @@ void main() {
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
   });
+}
+
+class _ReconnectButtonDeviceState extends DeviceState {
+  int reconnectCalls = 0;
+  AppSettings? fallbackSettings;
+
+  @override
+  DeviceConnectionStatus get status => DeviceConnectionStatus.reconnecting;
+
+  @override
+  bool get isConnected => false;
+
+  @override
+  Future<void> reconnectNow([AppSettings? fallbackSettings]) async {
+    reconnectCalls += 1;
+    this.fallbackSettings = fallbackSettings;
+  }
 }

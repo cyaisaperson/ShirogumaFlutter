@@ -47,7 +47,8 @@ class LiveCalibrationResult {
 }
 
 class DeviceState extends ChangeNotifier {
-  DeviceState();
+  DeviceState({BleService Function(AppSettings settings)? bleServiceFactory})
+    : _bleServiceFactory = bleServiceFactory ?? _defaultBleServiceFactory;
 
   static const batteryStaleAfter = Duration(seconds: 30);
   static const reconnectDelay = Duration(seconds: 3);
@@ -64,6 +65,7 @@ class DeviceState extends ChangeNotifier {
   DateTime? _lastBatteryReceivedAt;
   String? _errorMessage;
   BleService? _bleService;
+  final BleService Function(AppSettings settings) _bleServiceFactory;
   List<BleDiscoveredDevice> _discoveredDevices = const [];
   AppSettings? _lastConnectionSettings;
   BleDiscoveredDevice? _lastDiscoveredDevice;
@@ -159,12 +161,7 @@ class DeviceState extends ChangeNotifier {
     _manualDisconnecting = false;
     _lastConnectionSettings = settings;
     _errorMessage = null;
-    final service = BleService(
-      deviceName: settings.preferredDeviceName,
-      serviceUuid: settings.serviceUuid,
-      pressureCharacteristicUuid: settings.characteristicUuid,
-      batteryCharacteristicUuid: settings.batteryCharacteristicUuid,
-    );
+    final service = _bleServiceFactory(settings);
     _bleService = service;
     try {
       _setStatus(DeviceConnectionStatus.connecting);
@@ -200,12 +197,7 @@ class DeviceState extends ChangeNotifier {
   Stream<List<BleDiscoveredDevice>> browseDevices(AppSettings settings) {
     _errorMessage = null;
     _setStatus(DeviceConnectionStatus.scanning);
-    final service = BleService(
-      deviceName: settings.preferredDeviceName,
-      serviceUuid: settings.serviceUuid,
-      pressureCharacteristicUuid: settings.characteristicUuid,
-      batteryCharacteristicUuid: settings.batteryCharacteristicUuid,
-    );
+    final service = _bleServiceFactory(settings);
     _bleService = service;
     return service.scanNearbyDevices().map((devices) {
       _discoveredDevices = devices;
@@ -234,14 +226,7 @@ class DeviceState extends ChangeNotifier {
     _lastDiscoveredDevice = discoveredDevice;
     _setStatus(DeviceConnectionStatus.connecting);
     _errorMessage = null;
-    final service =
-        _bleService ??
-        BleService(
-          deviceName: settings.preferredDeviceName,
-          serviceUuid: settings.serviceUuid,
-          pressureCharacteristicUuid: settings.characteristicUuid,
-          batteryCharacteristicUuid: settings.batteryCharacteristicUuid,
-        );
+    final service = _bleService ?? _bleServiceFactory(settings);
     _bleService = service;
     try {
       await service.connectToDiscoveredDevice(
@@ -305,13 +290,15 @@ class DeviceState extends ChangeNotifier {
     _setStatus(DeviceConnectionStatus.disconnected);
   }
 
-  Future<void> reconnectNow() async {
-    final settings = _lastConnectionSettings;
+  Future<void> reconnectNow([AppSettings? fallbackSettings]) async {
+    final settings = _lastConnectionSettings ?? fallbackSettings;
     if (settings == null ||
         _status == DeviceConnectionStatus.connecting ||
         _status == DeviceConnectionStatus.connected) {
       return;
     }
+    _lastConnectionSettings = settings;
+    _manualDisconnecting = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     await _attemptReconnect();
@@ -673,5 +660,14 @@ class DeviceState extends ChangeNotifier {
     _reconnectTimer?.cancel();
     _bleService?.disconnect();
     super.dispose();
+  }
+
+  static BleService _defaultBleServiceFactory(AppSettings settings) {
+    return BleService(
+      deviceName: settings.preferredDeviceName,
+      serviceUuid: settings.serviceUuid,
+      pressureCharacteristicUuid: settings.characteristicUuid,
+      batteryCharacteristicUuid: settings.batteryCharacteristicUuid,
+    );
   }
 }

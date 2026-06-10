@@ -1,4 +1,7 @@
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shiroguma_squeeze_app/models/app_settings.dart';
+import 'package:shiroguma_squeeze_app/services/ble_service.dart';
 import 'package:shiroguma_squeeze_app/state/device_state.dart';
 
 void main() {
@@ -96,4 +99,56 @@ void main() {
     expect(result.valid, isFalse);
     expect(result.reason, contains('idle baseline'));
   });
+
+  test(
+    'reconnectNow starts a fresh connect attempt while reconnecting',
+    () async {
+      final fakeBleService = _FakeBleService();
+      final state = DeviceState(bleServiceFactory: (_) => fakeBleService);
+
+      await state.connect(const AppSettings());
+      expect(fakeBleService.connectAttempts, 1);
+      expect(state.status, DeviceConnectionStatus.connected);
+
+      fakeBleService.emitConnectionState(BluetoothConnectionState.disconnected);
+      expect(state.status, DeviceConnectionStatus.reconnecting);
+
+      await state.reconnectNow();
+
+      expect(fakeBleService.connectAttempts, 2);
+      expect(state.status, DeviceConnectionStatus.connected);
+    },
+  );
+
+  test(
+    'reconnectNow uses fallback settings when no previous connection exists',
+    () async {
+      final fakeBleService = _FakeBleService();
+      final state = DeviceState(bleServiceFactory: (_) => fakeBleService);
+
+      await state.reconnectNow(const AppSettings());
+
+      expect(fakeBleService.connectAttempts, 1);
+      expect(state.status, DeviceConnectionStatus.connected);
+    },
+  );
+}
+
+class _FakeBleService extends BleService {
+  int connectAttempts = 0;
+  void Function(BluetoothConnectionState state)? onConnectionState;
+
+  @override
+  Future<void> connect({
+    required void Function(double pressure) onPressure,
+    required void Function(int batteryPercent) onBattery,
+    void Function(BluetoothConnectionState state)? onConnectionState,
+  }) async {
+    connectAttempts += 1;
+    this.onConnectionState = onConnectionState;
+  }
+
+  void emitConnectionState(BluetoothConnectionState state) {
+    onConnectionState?.call(state);
+  }
 }
