@@ -28,6 +28,7 @@
 - Current UI Fix Phase 3: Moved patient deletion from the edit dialog body row to a top-right delete icon in the edit dialog header.
 - Current UI Fix Phase 4: Improved BLE scan timeout copy to show compact common causes. The connection label change was skipped per user instruction.
 - Current UI Fix Phase 4 follow-up: Hardened the Home Reconnect button so it passes current settings into immediate retry and added reconnect regressions with fake BLE service coverage.
+- Current UI Fix Phase 5: Hid MVS labels from patient roster cards while keeping calibration prompt text and Patient Data calibration summaries intact.
 
 ## Modified Files
 - `lib/app.dart`
@@ -117,9 +118,13 @@
   - `flutter test test\widget_test.dart` passed.
   - `flutter test` passed.
   - `flutter analyze` passed with no issues.
+- Phase 5 checks completed:
+  - `flutter test test\widget_test.dart` passed.
+  - `flutter test` passed.
+  - `flutter analyze` passed with no issues.
 
 ## Exact Next Step
-- Next phase: Phase 5, hide MVS from patient cards without deleting stored calibration data.
+- Next phase: Phase 6, add zoom support to the Patient Data bubble graph.
 
 
 

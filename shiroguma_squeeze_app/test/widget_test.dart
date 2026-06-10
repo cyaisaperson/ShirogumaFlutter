@@ -154,7 +154,7 @@ void main() {
     await tester.scrollUntilVisible(find.text('Joud Karam'), 300);
     await tester.pumpAndSettle();
     expect(find.text('Joud Karam'), findsOneWidget);
-    expect(find.textContaining('MVS:'), findsWidgets);
+    expect(find.textContaining('MVS:'), findsNothing);
     expect(find.text('View calibration'), findsNothing);
   });
 
@@ -247,7 +247,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Calibrate MVS?'), findsOneWidget);
-    expect(find.text('MVS: Not calibrated'), findsOneWidget);
+    expect(
+      find.textContaining('Live pain-level detection stays blocked'),
+      findsOneWidget,
+    );
     await tester.tap(find.text('Calibrate MVS'));
     await tester.pumpAndSettle();
 
@@ -259,7 +262,7 @@ void main() {
 
     expect(find.text('Mina Chen'), findsOneWidget);
     expect(find.textContaining('P-004'), findsOneWidget);
-    expect(find.text('MVS: Not calibrated'), findsWidgets);
+    expect(find.text('MVS: Not calibrated'), findsNothing);
   });
 
   testWidgets('skipping new patient calibration keeps patient on roster', (
@@ -289,10 +292,10 @@ void main() {
 
     expect(find.text('Mina Chen'), findsOneWidget);
     expect(find.textContaining('P-004'), findsOneWidget);
-    expect(find.text('MVS: Not calibrated'), findsWidgets);
+    expect(find.text('MVS: Not calibrated'), findsNothing);
   });
 
-  testWidgets('patient data page shows calibration summary without actions', (
+  testWidgets('patient data page keeps calibration summary without actions', (
     tester,
   ) async {
     await tester.pumpWidget(const ShirogumaApp());
@@ -305,6 +308,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Calibration'), findsOneWidget);
+    expect(find.textContaining('MVS:'), findsOneWidget);
     expect(find.text('Live calibrate'), findsNothing);
     expect(find.text('Manual entry'), findsNothing);
   });

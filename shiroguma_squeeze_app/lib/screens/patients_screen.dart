@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../models/calibration.dart';
 import '../models/patient.dart';
 import '../state/app_state_scope.dart';
 import '../theme/app_colors.dart';
@@ -39,7 +38,6 @@ class PatientsScreen extends StatelessWidget {
           for (final patient in appState.patients) ...[
             _PatientCard(
               patient: patient,
-              calibration: appState.calibrationForPatient(patient.id),
               isActive: appState.settings.activePatientId == patient.id,
               onTap: () =>
                   AppStateScope.read(context).setActivePatient(patient.id),
@@ -106,14 +104,12 @@ class PatientsScreen extends StatelessWidget {
 class _PatientCard extends StatelessWidget {
   const _PatientCard({
     required this.patient,
-    required this.calibration,
     required this.isActive,
     required this.onTap,
     required this.onEdit,
   });
 
   final Patient patient;
-  final Calibration? calibration;
   final bool isActive;
   final VoidCallback onTap;
   final VoidCallback onEdit;
@@ -175,11 +171,6 @@ class _PatientCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(patient.description),
-                const SizedBox(height: 8),
-                Text(
-                  _mvsLabel(calibration),
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
               ],
             ),
           ),
@@ -194,13 +185,6 @@ class _PatientCard extends StatelessWidget {
       return parts.first.substring(0, 1).toUpperCase();
     }
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
-  }
-
-  String _mvsLabel(Calibration? calibration) {
-    if (calibration == null) {
-      return 'MVS: Not calibrated';
-    }
-    return 'MVS: ${calibration.mvsPressure.toStringAsFixed(0)} mbar';
   }
 }
 
