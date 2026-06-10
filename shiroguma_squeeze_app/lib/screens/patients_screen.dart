@@ -5,6 +5,7 @@ import '../models/patient.dart';
 import '../state/app_state_scope.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_card.dart';
+import '../widgets/calibration_dialogs.dart';
 
 class PatientsScreen extends StatelessWidget {
   const PatientsScreen({super.key, this.onNavigate});
@@ -59,7 +60,7 @@ class PatientsScreen extends StatelessWidget {
       context: context,
       builder: (dialogContext) => _PatientDialog(
         patient: patient,
-        onCalibrate: (patient) => _openPatientData(context, patient),
+        onCalibrate: (patient) => _openLiveCalibration(context, patient),
       ),
     );
     if (!context.mounted || patient != null || createdPatient == null) {
@@ -68,9 +69,12 @@ class PatientsScreen extends StatelessWidget {
     await _showMvsPrompt(context, createdPatient);
   }
 
-  void _openPatientData(BuildContext context, Patient patient) {
+  void _openLiveCalibration(BuildContext context, Patient patient) {
     AppStateScope.read(context).setActivePatient(patient.id);
-    onNavigate?.call(2);
+    showDialog<void>(
+      context: context,
+      builder: (_) => LiveCalibrationDialog(patientId: patient.id),
+    );
   }
 
   Future<void> _showMvsPrompt(BuildContext context, Patient patient) async {
@@ -89,7 +93,7 @@ class PatientsScreen extends StatelessWidget {
           FilledButton(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              _openPatientData(context, patient);
+              _openLiveCalibration(context, patient);
             },
             child: const Text('Calibrate MVS'),
           ),

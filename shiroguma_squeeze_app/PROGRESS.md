@@ -22,6 +22,7 @@
 - Calibration release-stop tweak: MVS recording now stops after pressure returns to baseline and computes MVS from the middle 10 high-force samples rather than requiring a perfectly stable full region.
 - Patient data polish: MVS now appears as simple patient-info text, normal patient cards no longer show a large calibration action, new patients prompt for MVS calibration, and active patient contrast is stronger.
 - Patient management polish: Edit patient mode now supports confirmed patient deletion, and active patient cards use the prior coral color treatment again.
+- Current UI Fix Phase 1: Moved live MVS calibration out of Patient Data and into the Patients page flow for new-patient prompts and edit-patient recalibration. Patient Data now shows calibration values as a read-only summary.
 
 ## Modified Files
 - `lib/app.dart`
@@ -36,6 +37,7 @@
 - `lib/screens/settings_screen.dart`
 - `lib/screens/patient_data_screen.dart`
 - `lib/screens/patients_screen.dart`
+- `lib/widgets/calibration_dialogs.dart`
 - `lib/services/ble_service.dart`
 - `lib/services/live_squeeze_detector.dart`
 - `lib/state/device_state.dart`
@@ -91,20 +93,12 @@
 - Full SD card log transfer/parsing/import is not implemented yet.
 - Live MVS calibration depends on an active BLE pressure stream; if the device is disconnected, recording will collect no samples and fail validation.
 - Live MVS calibration still requires the user to explicitly save after auto-stop so patient calibration is not overwritten by accident.
+- Phase 1 checks completed:
+  - `flutter test test\widget_test.dart` passed.
+  - `flutter analyze` passed with no issues.
 
 ## Exact Next Step
-- Current UI fix plan setup completed from `codex_ui_fixes_step_by_step.md`.
-- Baseline checks:
-  - `flutter pub get` completed after dependency resolution approval.
-  - `flutter analyze` completed with no issues.
-- Main files identified:
-  - Home page: `lib/screens/home_screen.dart`
-  - Patients list page: `lib/screens/patients_screen.dart`
-  - Patient data/history page and bubble graph: `lib/screens/patient_data_screen.dart`
-  - Calibration UI: currently embedded in `lib/screens/patient_data_screen.dart`
-  - BLE connection logic: `lib/services/ble_service.dart`, `lib/state/device_state.dart`
-  - Theme/colors/fonts: `lib/theme/app_theme.dart`, `lib/theme/app_colors.dart`
-- Next phase: Phase 1, move live MVS calibration flow to the Patients page.
+- Next phase: Phase 2, center Patient Data bubble graph x-axis labels for week and month modes.
 
 
 

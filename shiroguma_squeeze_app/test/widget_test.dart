@@ -140,6 +140,22 @@ void main() {
     expect(find.text('Edit patient'), findsOneWidget);
   });
 
+  testWidgets('edit patient calibration opens on patients page', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Edit Anya Rahimi'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Calibrate MVS'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Live MVS calibration'), findsOneWidget);
+    expect(find.text('Patient roster'), findsOneWidget);
+  });
+
   testWidgets('selecting a patient updates active patient views', (
     tester,
   ) async {
@@ -200,12 +216,65 @@ void main() {
 
     expect(find.text('Calibrate MVS?'), findsOneWidget);
     expect(find.text('MVS: Not calibrated'), findsOneWidget);
+    await tester.tap(find.text('Calibrate MVS'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Live MVS calibration'), findsOneWidget);
+    expect(find.text('Patient roster'), findsOneWidget);
+    expect(find.text('Patient Data'), findsNothing);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mina Chen'), findsOneWidget);
+    expect(find.textContaining('P-004'), findsOneWidget);
+    expect(find.text('MVS: Not calibrated'), findsWidgets);
+  });
+
+  testWidgets('skipping new patient calibration keeps patient on roster', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add patient'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Name'),
+      'Mina Chen',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Patient ID'),
+      'P-004',
+    );
+    await tester.tap(find.text('Save patient'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Calibrate MVS?'), findsOneWidget);
     await tester.tap(find.text('Skip calibration'));
     await tester.pumpAndSettle();
 
     expect(find.text('Mina Chen'), findsOneWidget);
     expect(find.textContaining('P-004'), findsOneWidget);
     expect(find.text('MVS: Not calibrated'), findsWidgets);
+  });
+
+  testWidgets('patient data page shows calibration summary without actions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Anya Rahimi'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Calibration'), findsOneWidget);
+    expect(find.text('Live calibrate'), findsNothing);
+    expect(find.text('Manual entry'), findsNothing);
   });
 
   testWidgets('rejects duplicate patient IDs in patient dialog', (
@@ -625,22 +694,16 @@ void main() {
     );
   });
 
-  testWidgets('manual calibration dialog saves active patient calibration', (
+  testWidgets('patients page live calibration dialog starts countdown', (
     tester,
   ) async {
     await tester.pumpWidget(const ShirogumaApp());
 
     await tester.tap(find.text('Patients').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Anya Rahimi'));
+    await tester.tap(find.byTooltip('Edit Anya Rahimi'));
     await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Data').last);
-    await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.text('Live calibrate'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Live calibrate'));
+    await tester.tap(find.text('Calibrate MVS'));
     await tester.pumpAndSettle();
 
     expect(find.text('Get comfortable'), findsOneWidget);
@@ -654,23 +717,5 @@ void main() {
     expect(find.text('1. Hold device still for baseline.'), findsNothing);
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.text('Manual entry'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Manual entry'));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Baseline pressure'),
-      '1011',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'MVS pressure'),
-      '2333',
-    );
-    await tester.tap(find.text('Save calibration'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('2333 mbar'), findsWidgets);
   });
 }
