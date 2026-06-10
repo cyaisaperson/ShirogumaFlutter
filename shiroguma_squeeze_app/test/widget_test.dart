@@ -422,15 +422,16 @@ void main() {
     expect(find.byKey(const ValueKey('bubble-timeline-graph')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('bubble-timeline-zoom-viewer')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('bubble-timeline-gesture-area')),
       findsOneWidget,
     );
-    final zoomViewer = tester.widget<InteractiveViewer>(
-      find.byKey(const ValueKey('bubble-timeline-zoom-viewer')),
+    expect(
+      find.byKey(const ValueKey('bubble-timeline-window-label')),
+      findsOneWidget,
     );
-    expect(zoomViewer.minScale, 1);
-    expect(zoomViewer.maxScale, 4);
-    expect(zoomViewer.panEnabled, isTrue);
-    expect(zoomViewer.scaleEnabled, isTrue);
     expect(find.text('Selected pain event'), findsOneWidget);
     expect(find.text('Wong-Baker face image placeholder'), findsOneWidget);
     expect(find.byKey(const ValueKey('patient-summary-card')), findsOneWidget);
@@ -457,9 +458,50 @@ void main() {
 
     expect(find.text('No pain events in selected range.'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('bubble-timeline-zoom-viewer')),
+      find.byKey(const ValueKey('bubble-timeline-gesture-area')),
       findsNothing,
     );
+  });
+
+  testWidgets('pinch zoom narrows the visible time domain', (tester) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Anya Rahimi'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('0:00'), findsWidgets);
+    final windowLabel = find.byKey(
+      const ValueKey('bubble-timeline-window-label'),
+    );
+    final initialWindowText = tester.widget<Text>(
+      find.descendant(of: windowLabel, matching: find.byType(Text)),
+    );
+    final gestureArea = find.byKey(
+      const ValueKey('bubble-timeline-gesture-area'),
+    );
+    final center = tester.getCenter(gestureArea);
+    final firstFinger = await tester.createGesture();
+    final secondFinger = await tester.createGesture();
+
+    await firstFinger.down(center.translate(-8, 0));
+    await secondFinger.down(center.translate(8, 0));
+    await tester.pump();
+    await firstFinger.moveTo(center.translate(-120, 0));
+    await secondFinger.moveTo(center.translate(120, 0));
+    await tester.pumpAndSettle();
+    await firstFinger.up();
+    await secondFinger.up();
+    await tester.pumpAndSettle();
+
+    final zoomedWindowText = tester.widget<Text>(
+      find.descendant(of: windowLabel, matching: find.byType(Text)),
+    );
+    expect(zoomedWindowText.data, isNot(initialWindowText.data));
   });
 
   testWidgets('patient data boxes follow requested order after bubble select', (

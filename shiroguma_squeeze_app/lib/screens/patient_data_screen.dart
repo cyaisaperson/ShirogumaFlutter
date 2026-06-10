@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/calibration.dart';
 import '../models/pain_event.dart';
 import '../models/patient.dart';
+import '../models/timeline_viewport.dart';
 import '../services/csv_export_service.dart';
 import '../state/app_state_scope.dart';
 import '../state/device_state_scope.dart';
@@ -429,7 +430,7 @@ class _PatientSummaryCard extends StatelessWidget {
   }
 }
 
-class _PainTimelineGraph extends StatelessWidget {
+class _PainTimelineGraph extends StatefulWidget {
   const _PainTimelineGraph({
     required this.events,
     required this.selectedRange,
@@ -445,9 +446,39 @@ class _PainTimelineGraph extends StatelessWidget {
   final ValueChanged<PainEvent> onSelectEvent;
 
   @override
+  State<_PainTimelineGraph> createState() => _PainTimelineGraphState();
+}
+
+class _PainTimelineGraphState extends State<_PainTimelineGraph> {
+  late TimelineViewport viewport;
+  TimelineViewport? gestureStartViewport;
+  double gestureFocalFraction = 0.5;
+
+  @override
+  void initState() {
+    super.initState();
+    viewport = _fullViewportFor(widget.selectedRange, widget.selectedDate);
+  }
+
+  @override
+  void didUpdateWidget(covariant _PainTimelineGraph oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedRange != widget.selectedRange ||
+        oldWidget.selectedDate != widget.selectedDate) {
+      viewport = _fullViewportFor(widget.selectedRange, widget.selectedDate);
+      gestureStartViewport = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final graphEvents = events.where((event) => event.painLevel > 0).toList()
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    final graphEvents =
+        widget.events.where((event) => event.painLevel > 0).toList()
+          ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    final visibleEvents = graphEvents.where((event) {
+      return !event.timestamp.isBefore(viewport.visibleStart) &&
+          event.timestamp.isBefore(viewport.visibleEnd);
+    }).toList();
 
     return Container(
       key: const ValueKey('bubble-timeline-graph'),
@@ -470,18 +501,19 @@ class _PainTimelineGraph extends StatelessWidget {
             )
           : LayoutBuilder(
               builder: (context, constraints) {
-                final axis = _TimelineAxis.forRange(
-                  selectedRange,
-                  selectedDate,
+                final axis = _TimelineAxis.forViewport(
+                  viewport,
+                  selectedRange: widget.selectedRange,
+                  selectedDate: widget.selectedDate,
                 );
 
                 const labelHeight = 32.0;
                 const labelBottomPadding = 8.0;
                 const bubbleTopPadding = 18.0;
-                final labelWidth = _labelWidth(selectedRange);
+                final labelWidth = _labelWidth(widget.selectedRange, viewport);
                 final axisInset = labelWidth / 2 + 4;
 
-                final maxBubbleRadius = graphEvents
+                final maxBubbleRadius = visibleEvents
                     .map((event) => _bubbleRadius(event.painLevel))
                     .fold<double>(
                       0,
@@ -499,14 +531,40 @@ class _PainTimelineGraph extends StatelessWidget {
                   constraints.maxHeight - labelHeight - maxBubbleRadius - 12,
                 );
 
-                return InteractiveViewer(
-                  key: const ValueKey('bubble-timeline-zoom-viewer'),
-                  minScale: 1.0,
-                  maxScale: 4.0,
-                  panEnabled: true,
-                  scaleEnabled: true,
-                  boundaryMargin: EdgeInsets.zero,
-                  clipBehavior: Clip.hardEdge,
+                return GestureDetector(
+                  key: const ValueKey('bubble-timeline-gesture-area'),
+                  behavior: HitTestBehavior.opaque,
+                  onDoubleTap: () {
+                    setState(() {
+                      viewport = viewport.reset();
+                      gestureStartViewport = null;
+                    });
+                  },
+                  onScaleStart: (details) {
+                    gestureStartViewport = viewport;
+                    gestureFocalFraction =
+                        (details.localFocalPoint.dx / constraints.maxWidth)
+                            .clamp(0.0, 1.0);
+                  },
+                  onScaleUpdate: (details) {
+                    final startViewport = gestureStartViewport ?? viewport;
+                    if ((details.scale - 1).abs() > 0.01) {
+                      setState(() {
+                        viewport = startViewport.zoomAround(
+                          focalFraction: gestureFocalFraction,
+                          scaleDelta: details.scale,
+                        );
+                      });
+                      return;
+                    }
+                    if (details.focalPointDelta.dx.abs() > 0.2) {
+                      setState(() {
+                        viewport = viewport.panByFraction(
+                          -details.focalPointDelta.dx / constraints.maxWidth,
+                        );
+                      });
+                    }
+                  },
                   child: SizedBox(
                     width: constraints.maxWidth,
                     height: constraints.maxHeight,
@@ -519,11 +577,36 @@ class _PainTimelineGraph extends StatelessWidget {
                           top: safeAxisTop,
                           child: Container(height: 2, color: AppColors.border),
                         ),
+                        Positioned(
+                          left: 10,
+                          top: 8,
+                          child: _ViewportLabel(
+                            key: const ValueKey('bubble-timeline-window-label'),
+                            label: _viewportLabel(viewport),
+                          ),
+                        ),
+                        if (!viewport.isFullRange)
+                          Positioned(
+                            right: 4,
+                            top: 0,
+                            child: IconButton(
+                              tooltip: 'Reset zoom',
+                              iconSize: 18,
+                              onPressed: () {
+                                setState(() {
+                                  viewport = viewport.reset();
+                                  gestureStartViewport = null;
+                                });
+                              },
+                              icon: const Icon(Icons.zoom_out_map),
+                            ),
+                          ),
                         for (final tick in axis.ticks)
                           Positioned(
                             left:
                                 axisInset +
-                                usableWidth * axis.fractionFor(tick.timestamp) -
+                                usableWidth *
+                                    viewport.fractionFor(tick.timestamp) -
                                 labelWidth / 2,
                             top: labelTop,
                             width: labelWidth,
@@ -543,20 +626,31 @@ class _PainTimelineGraph extends StatelessWidget {
                               ),
                             ),
                           ),
-                        for (final event in graphEvents)
+                        if (visibleEvents.isEmpty)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text(
+                                'No events in this zoom window.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: AppColors.mutedText),
+                              ),
+                            ),
+                          ),
+                        for (final event in visibleEvents)
                           Positioned(
                             left: _safeBubbleLeft(
                               axisInset +
                                   usableWidth *
-                                      axis.fractionFor(event.timestamp),
+                                      viewport.fractionFor(event.timestamp),
                               _bubbleRadius(event.painLevel),
                               constraints.maxWidth,
                             ),
                             top: safeAxisTop - _bubbleRadius(event.painLevel),
                             child: _PainBubble(
                               event: event,
-                              isSelected: selectedEvent?.id == event.id,
-                              onTap: () => onSelectEvent(event),
+                              isSelected: widget.selectedEvent?.id == event.id,
+                              onTap: () => widget.onSelectEvent(event),
                             ),
                           ),
                       ],
@@ -568,12 +662,68 @@ class _PainTimelineGraph extends StatelessWidget {
     );
   }
 
-  static double _labelWidth(String selectedRange) {
+  static TimelineViewport _fullViewportFor(
+    String selectedRange,
+    DateTime selectedDate,
+  ) {
+    final start = switch (selectedRange) {
+      'Week' => DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+      ).subtract(Duration(days: selectedDate.weekday - 1)),
+      'Month' => DateTime(selectedDate.year, selectedDate.month),
+      'Year' => DateTime(selectedDate.year),
+      _ => DateTime(selectedDate.year, selectedDate.month, selectedDate.day),
+    };
+    final end = switch (selectedRange) {
+      'Week' => start.add(const Duration(days: 7)),
+      'Month' => DateTime(selectedDate.year, selectedDate.month + 1),
+      'Year' => DateTime(selectedDate.year + 1),
+      _ => start.add(const Duration(days: 1)),
+    };
+    final minWindow = switch (selectedRange) {
+      'Week' => const Duration(hours: 1),
+      'Month' => const Duration(hours: 6),
+      'Year' => const Duration(days: 1),
+      _ => const Duration(minutes: 15),
+    };
+
+    return TimelineViewport.full(
+      fullStart: start,
+      fullEnd: end,
+      minWindow: minWindow,
+    );
+  }
+
+  static String _viewportLabel(TimelineViewport viewport) {
+    if (viewport.visibleDuration.inHours < 24) {
+      final prefix = viewport.visibleStart.day == viewport.visibleEnd.day
+          ? _shortDate(viewport.visibleStart)
+          : '${_shortDate(viewport.visibleStart)}-${_shortDate(viewport.visibleEnd)}';
+      return '$prefix ${_formatTime(viewport.visibleStart)}-${_formatTime(viewport.visibleEnd)}';
+    }
+    if (viewport.visibleDuration.inDays <= 31) {
+      return '${_shortDate(viewport.visibleStart)}-${_shortDate(viewport.visibleEnd.subtract(const Duration(days: 1)))}';
+    }
+    return '${_shortDate(viewport.visibleStart)}-${_shortDate(viewport.visibleEnd)}';
+  }
+
+  static double _labelWidth(String selectedRange, TimelineViewport viewport) {
+    if (!viewport.isFullRange) return 58;
     return switch (selectedRange) {
       'Day' => 54,
       'Month' => 64,
       _ => 44,
     };
+  }
+
+  static String _formatTime(DateTime value) {
+    return '${value.hour}:${value.minute.toString().padLeft(2, '0')}';
+  }
+
+  static String _shortDate(DateTime value) {
+    return '${value.month}/${value.day}';
   }
 
   static double _safeBubbleLeft(
@@ -582,6 +732,36 @@ class _PainTimelineGraph extends StatelessWidget {
     double graphWidth,
   ) {
     return (centerX - radius).clamp(2.0, graphWidth - radius * 2 - 2);
+  }
+}
+
+class _ViewportLabel extends StatelessWidget {
+  const _ViewportLabel({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.background.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: AppColors.mutedText,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -667,6 +847,35 @@ class _TimelineAxis {
   final DateTime start;
   final DateTime end;
   final List<_TimelineTick> ticks;
+
+  factory _TimelineAxis.forViewport(
+    TimelineViewport viewport, {
+    required String selectedRange,
+    required DateTime selectedDate,
+  }) {
+    if (viewport.isFullRange) {
+      return _TimelineAxis.forRange(selectedRange, selectedDate);
+    }
+
+    final duration = viewport.visibleDuration;
+    final ticks = duration <= const Duration(hours: 2)
+        ? _timeTicks(viewport, const Duration(minutes: 15))
+        : duration <= const Duration(hours: 8)
+        ? _timeTicks(viewport, const Duration(hours: 1))
+        : duration <= const Duration(hours: 36)
+        ? _timeTicks(viewport, const Duration(hours: 6))
+        : duration <= const Duration(days: 10)
+        ? _dayTicks(viewport)
+        : duration <= const Duration(days: 100)
+        ? _weeklyTicks(viewport)
+        : _monthTicks(viewport);
+
+    return _TimelineAxis(
+      start: viewport.visibleStart,
+      end: viewport.visibleEnd,
+      ticks: ticks,
+    );
+  }
 
   factory _TimelineAxis.forRange(String selectedRange, DateTime selectedDate) {
     return switch (selectedRange) {
@@ -762,6 +971,117 @@ class _TimelineAxis {
     return '$month/$day';
   }
 
+  static List<_TimelineTick> _timeTicks(
+    TimelineViewport viewport,
+    Duration step,
+  ) {
+    final ticks = <_TimelineTick>[];
+    var current = _ceilToStep(viewport.visibleStart, step);
+    while (current.isBefore(viewport.visibleEnd) ||
+        current.isAtSameMomentAs(viewport.visibleEnd)) {
+      ticks.add(_TimelineTick(current, _formatTime(current)));
+      current = current.add(step);
+    }
+    return ticks.isEmpty
+        ? [
+            _TimelineTick(
+              viewport.visibleStart,
+              _formatTime(viewport.visibleStart),
+            ),
+          ]
+        : ticks;
+  }
+
+  static List<_TimelineTick> _dayTicks(TimelineViewport viewport) {
+    final ticks = <_TimelineTick>[];
+    var current = DateTime(
+      viewport.visibleStart.year,
+      viewport.visibleStart.month,
+      viewport.visibleStart.day,
+    );
+    if (current.isBefore(viewport.visibleStart)) {
+      current = current.add(const Duration(days: 1));
+    }
+    while (current.isBefore(viewport.visibleEnd)) {
+      ticks.add(_TimelineTick(current, _shortWeekday(current.weekday)));
+      current = current.add(const Duration(days: 1));
+    }
+    return ticks.isEmpty
+        ? [
+            _TimelineTick(
+              viewport.visibleStart,
+              _shortWeekday(viewport.visibleStart.weekday),
+            ),
+          ]
+        : ticks;
+  }
+
+  static List<_TimelineTick> _weeklyTicks(TimelineViewport viewport) {
+    final ticks = <_TimelineTick>[];
+    var current = DateTime(
+      viewport.visibleStart.year,
+      viewport.visibleStart.month,
+      viewport.visibleStart.day,
+    );
+    while (current.weekday != DateTime.monday) {
+      current = current.add(const Duration(days: 1));
+    }
+    while (current.isBefore(viewport.visibleEnd)) {
+      ticks.add(_TimelineTick(current, _formatDate(current)));
+      current = current.add(const Duration(days: 7));
+    }
+    return ticks.isEmpty
+        ? [
+            _TimelineTick(
+              viewport.visibleStart,
+              _formatDate(viewport.visibleStart),
+            ),
+          ]
+        : ticks;
+  }
+
+  static List<_TimelineTick> _monthTicks(TimelineViewport viewport) {
+    final ticks = <_TimelineTick>[];
+    var current = DateTime(
+      viewport.visibleStart.year,
+      viewport.visibleStart.month,
+    );
+    if (current.isBefore(viewport.visibleStart)) {
+      current = DateTime(current.year, current.month + 1);
+    }
+    while (current.isBefore(viewport.visibleEnd)) {
+      ticks.add(_TimelineTick(current, current.month.toString()));
+      current = DateTime(current.year, current.month + 1);
+    }
+    return ticks.isEmpty
+        ? [
+            _TimelineTick(
+              viewport.visibleStart,
+              viewport.visibleStart.month.toString(),
+            ),
+          ]
+        : ticks;
+  }
+
+  static DateTime _ceilToStep(DateTime value, Duration step) {
+    final stepMilliseconds = step.inMilliseconds;
+    final milliseconds = value.millisecondsSinceEpoch;
+    final remainder = milliseconds % stepMilliseconds;
+    if (remainder == 0) return value;
+    return DateTime.fromMillisecondsSinceEpoch(
+      milliseconds + stepMilliseconds - remainder,
+    );
+  }
+
+  static String _formatTime(DateTime value) {
+    return '${value.hour}:${value.minute.toString().padLeft(2, '0')}';
+  }
+
+  static String _shortWeekday(int weekday) {
+    const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return labels[weekday - 1];
+  }
+
   static DateTime _monthTickCenter({
     required int year,
     required int month,
@@ -797,7 +1117,7 @@ class _TimelineTick {
   final String label;
 }
 
-class _PainBubble extends StatelessWidget {
+class _PainBubble extends StatefulWidget {
   const _PainBubble({
     required this.event,
     required this.isSelected,
@@ -809,22 +1129,43 @@ class _PainBubble extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final radius = _bubbleRadius(event.painLevel);
+  State<_PainBubble> createState() => _PainBubbleState();
+}
 
-    return GestureDetector(
-      key: ValueKey('pain-bubble-${event.id}'),
-      onTap: onTap,
+class _PainBubbleState extends State<_PainBubble> {
+  Offset? pointerDownPosition;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = _bubbleRadius(widget.event.painLevel);
+
+    return Listener(
+      key: ValueKey('pain-bubble-${widget.event.id}'),
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (event) {
+        pointerDownPosition = event.localPosition;
+      },
+      onPointerUp: (event) {
+        final start = pointerDownPosition;
+        pointerDownPosition = null;
+        if (start == null) return;
+        if ((event.localPosition - start).distance <= 8) {
+          widget.onTap();
+        }
+      },
+      onPointerCancel: (_) {
+        pointerDownPosition = null;
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         width: radius * 2,
         height: radius * 2,
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.coralDark : AppColors.coral,
+          color: widget.isSelected ? AppColors.coralDark : AppColors.coral,
           shape: BoxShape.circle,
           border: Border.all(
-            color: isSelected ? AppColors.ink : Colors.white,
-            width: isSelected ? 3 : 2,
+            color: widget.isSelected ? AppColors.ink : Colors.white,
+            width: widget.isSelected ? 3 : 2,
           ),
           boxShadow: const [
             BoxShadow(
@@ -837,7 +1178,7 @@ class _PainBubble extends StatelessWidget {
         alignment: Alignment.center,
         child: FittedBox(
           child: Text(
-            event.painLevel.toString(),
+            widget.event.painLevel.toString(),
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w900,

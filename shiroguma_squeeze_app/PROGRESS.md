@@ -29,13 +29,14 @@
 - Current UI Fix Phase 4: Improved BLE scan timeout copy to show compact common causes. The connection label change was skipped per user instruction.
 - Current UI Fix Phase 4 follow-up: Hardened the Home Reconnect button so it passes current settings into immediate retry and added reconnect regressions with fake BLE service coverage.
 - Current UI Fix Phase 5: Hid MVS labels from patient roster cards while keeping calibration prompt text and Patient Data calibration summaries intact.
-- Current UI Fix Phase 6: Added InteractiveViewer zoom and pan support to non-empty Patient Data bubble graphs while leaving empty graph state unzoomed.
+- Current UI Fix Phase 6 replacement: Replaced pixel-scaling zoom with time-domain zoom and pan for Patient Data bubble graphs. Pinch/trackpad-style scale gestures now narrow the visible time window, axis ticks are recalculated for the visible domain, bubbles keep stable visual size, and reset is available by double-tap or the compact reset control.
 
 ## Modified Files
 - `lib/app.dart`
 - `lib/models/app_settings.dart`
 - `lib/models/calibration.dart`
 - `lib/models/pain_event.dart`
+- `lib/models/timeline_viewport.dart`
 - `lib/state/app_state.dart`
 - `lib/state/mock_data.dart`
 - `lib/services/csv_export_service.dart`
@@ -59,6 +60,7 @@
 - `test/device_state_test.dart`
 - `test/live_squeeze_detector_test.dart`
 - `test/sync_service_test.dart`
+- `test/timeline_viewport_test.dart`
 - `test/csv_export_service_test.dart`
 - `test/widget_test.dart`
 
@@ -123,7 +125,8 @@
   - `flutter test test\widget_test.dart` passed.
   - `flutter test` passed.
   - `flutter analyze` passed with no issues.
-- Phase 6 checks completed:
+- Phase 6 replacement checks completed:
+  - `flutter test test\timeline_viewport_test.dart` passed.
   - `flutter test test\widget_test.dart` passed.
   - `flutter test` passed.
   - `flutter analyze` passed with no issues.
