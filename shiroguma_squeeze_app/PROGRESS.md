@@ -93,7 +93,18 @@
 - Live MVS calibration still requires the user to explicitly save after auto-stop so patient calibration is not overwritten by accident.
 
 ## Exact Next Step
-- Phase 19: Bubble Timeline Zoom and X-Axis Scaling, or Phase 20 Home Squeeze Circle Radius. Phase 18 auto-baseline is intentionally skipped for now because current continuous idle baseline behavior is working well.
+- Current UI fix plan setup completed from `codex_ui_fixes_step_by_step.md`.
+- Baseline checks:
+  - `flutter pub get` completed after dependency resolution approval.
+  - `flutter analyze` completed with no issues.
+- Main files identified:
+  - Home page: `lib/screens/home_screen.dart`
+  - Patients list page: `lib/screens/patients_screen.dart`
+  - Patient data/history page and bubble graph: `lib/screens/patient_data_screen.dart`
+  - Calibration UI: currently embedded in `lib/screens/patient_data_screen.dart`
+  - BLE connection logic: `lib/services/ble_service.dart`, `lib/state/device_state.dart`
+  - Theme/colors/fonts: `lib/theme/app_theme.dart`, `lib/theme/app_colors.dart`
+- Next phase: Phase 1, move live MVS calibration flow to the Patients page.
 
 
 
