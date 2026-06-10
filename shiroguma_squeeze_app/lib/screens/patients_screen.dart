@@ -249,7 +249,18 @@ class _PatientDialogState extends State<_PatientDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(isEditing ? 'Edit patient' : 'Add patient'),
+      title: isEditing
+          ? Row(
+              children: [
+                const Expanded(child: Text('Edit patient')),
+                IconButton(
+                  tooltip: 'Delete patient',
+                  onPressed: _confirmDelete,
+                  icon: const Icon(Icons.delete_outline),
+                ),
+              ],
+            )
+          : const Text('Add patient'),
       content: Form(
         key: formKey,
         child: SingleChildScrollView(
@@ -283,23 +294,16 @@ class _PatientDialogState extends State<_PatientDialog> {
               ),
               if (isEditing) ...[
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    TextButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        widget.onCalibrate(widget.patient!);
-                      },
-                      icon: const Icon(Icons.tune, size: 18),
-                      label: const Text('Calibrate MVS'),
-                    ),
-                    const Spacer(),
-                    TextButton.icon(
-                      onPressed: _confirmDelete,
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      label: const Text('Delete patient'),
-                    ),
-                  ],
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      widget.onCalibrate(widget.patient!);
+                    },
+                    icon: const Icon(Icons.tune, size: 18),
+                    label: const Text('Calibrate MVS'),
+                  ),
                 ),
               ],
             ],

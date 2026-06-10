@@ -25,6 +25,7 @@
 - Current UI Fix Phase 1: Moved live MVS calibration out of Patient Data and into the Patients page flow for new-patient prompts and edit-patient recalibration. Patient Data now shows calibration values as a read-only summary.
 - Current UI Fix Phase 2: Centered Patient Data bubble graph week labels in day buckets and month labels in date buckets.
 - Current UI Fix Phase 2 follow-up: Corrected month final-bucket labels and year labels so both use bucket-center positions.
+- Current UI Fix Phase 3: Moved patient deletion from the edit dialog body row to a top-right delete icon in the edit dialog header.
 
 ## Modified Files
 - `lib/app.dart`
@@ -101,9 +102,13 @@
 - Phase 2 checks completed:
   - `flutter test` passed.
   - `flutter analyze` passed with no issues.
+- Phase 3 checks completed:
+  - `flutter test test\widget_test.dart` passed.
+  - `flutter test` passed.
+  - `flutter analyze` passed with no issues.
 
 ## Exact Next Step
-- Next phase: Phase 3, move patient delete action into the card/dialog header to prevent overflow.
+- Next phase: Phase 4, improve Home connection label and BLE connection failure message.
 
 
 

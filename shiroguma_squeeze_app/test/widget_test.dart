@@ -332,8 +332,9 @@ void main() {
     await tester.tap(find.byTooltip('Edit Marcus Tate'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Delete patient'), findsOneWidget);
-    await tester.tap(find.text('Delete patient'));
+    expect(find.byTooltip('Delete patient'), findsOneWidget);
+    expect(find.text('Delete patient'), findsNothing);
+    await tester.tap(find.byTooltip('Delete patient'));
     await tester.pumpAndSettle();
 
     expect(find.text('Delete Marcus Tate?'), findsOneWidget);
