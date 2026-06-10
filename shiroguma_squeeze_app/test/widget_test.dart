@@ -420,6 +420,17 @@ void main() {
     expect(find.text('Year'), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-open-button')), findsOneWidget);
     expect(find.byKey(const ValueKey('bubble-timeline-graph')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('bubble-timeline-zoom-viewer')),
+      findsOneWidget,
+    );
+    final zoomViewer = tester.widget<InteractiveViewer>(
+      find.byKey(const ValueKey('bubble-timeline-zoom-viewer')),
+    );
+    expect(zoomViewer.minScale, 1);
+    expect(zoomViewer.maxScale, 4);
+    expect(zoomViewer.panEnabled, isTrue);
+    expect(zoomViewer.scaleEnabled, isTrue);
     expect(find.text('Selected pain event'), findsOneWidget);
     expect(find.text('Wong-Baker face image placeholder'), findsOneWidget);
     expect(find.byKey(const ValueKey('patient-summary-card')), findsOneWidget);
@@ -427,6 +438,28 @@ void main() {
     expect(find.text('Total events'), findsNothing);
     expect(find.text('Latest pain level'), findsNothing);
     expect(find.text('Export CSV'), findsOneWidget);
+  });
+
+  testWidgets('empty patient data graph does not show zoom viewer', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Anya Rahimi'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Next range'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No pain events in selected range.'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('bubble-timeline-zoom-viewer')),
+      findsNothing,
+    );
   });
 
   testWidgets('patient data boxes follow requested order after bubble select', (

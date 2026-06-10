@@ -499,55 +499,69 @@ class _PainTimelineGraph extends StatelessWidget {
                   constraints.maxHeight - labelHeight - maxBubbleRadius - 12,
                 );
 
-                return Stack(
+                return InteractiveViewer(
+                  key: const ValueKey('bubble-timeline-zoom-viewer'),
+                  minScale: 1.0,
+                  maxScale: 4.0,
+                  panEnabled: true,
+                  scaleEnabled: true,
+                  boundaryMargin: EdgeInsets.zero,
                   clipBehavior: Clip.hardEdge,
-                  children: [
-                    Positioned(
-                      left: axisInset,
-                      right: axisInset,
-                      top: safeAxisTop,
-                      child: Container(height: 2, color: AppColors.border),
-                    ),
-                    for (final tick in axis.ticks)
-                      Positioned(
-                        left:
-                            axisInset +
-                            usableWidth * axis.fractionFor(tick.timestamp) -
-                            labelWidth / 2,
-                        top: labelTop,
-                        width: labelWidth,
-                        height: labelHeight,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            tick.label,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.visible,
-                            style: const TextStyle(
-                              color: AppColors.mutedText,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
+                  child: SizedBox(
+                    width: constraints.maxWidth,
+                    height: constraints.maxHeight,
+                    child: Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        Positioned(
+                          left: axisInset,
+                          right: axisInset,
+                          top: safeAxisTop,
+                          child: Container(height: 2, color: AppColors.border),
+                        ),
+                        for (final tick in axis.ticks)
+                          Positioned(
+                            left:
+                                axisInset +
+                                usableWidth * axis.fractionFor(tick.timestamp) -
+                                labelWidth / 2,
+                            top: labelTop,
+                            width: labelWidth,
+                            height: labelHeight,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                tick.label,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.visible,
+                                style: const TextStyle(
+                                  color: AppColors.mutedText,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    for (final event in graphEvents)
-                      Positioned(
-                        left: _safeBubbleLeft(
-                          axisInset +
-                              usableWidth * axis.fractionFor(event.timestamp),
-                          _bubbleRadius(event.painLevel),
-                          constraints.maxWidth,
-                        ),
-                        top: safeAxisTop - _bubbleRadius(event.painLevel),
-                        child: _PainBubble(
-                          event: event,
-                          isSelected: selectedEvent?.id == event.id,
-                          onTap: () => onSelectEvent(event),
-                        ),
-                      ),
-                  ],
+                        for (final event in graphEvents)
+                          Positioned(
+                            left: _safeBubbleLeft(
+                              axisInset +
+                                  usableWidth *
+                                      axis.fractionFor(event.timestamp),
+                              _bubbleRadius(event.painLevel),
+                              constraints.maxWidth,
+                            ),
+                            top: safeAxisTop - _bubbleRadius(event.painLevel),
+                            child: _PainBubble(
+                              event: event,
+                              isSelected: selectedEvent?.id == event.id,
+                              onTap: () => onSelectEvent(event),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),

@@ -29,6 +29,7 @@
 - Current UI Fix Phase 4: Improved BLE scan timeout copy to show compact common causes. The connection label change was skipped per user instruction.
 - Current UI Fix Phase 4 follow-up: Hardened the Home Reconnect button so it passes current settings into immediate retry and added reconnect regressions with fake BLE service coverage.
 - Current UI Fix Phase 5: Hid MVS labels from patient roster cards while keeping calibration prompt text and Patient Data calibration summaries intact.
+- Current UI Fix Phase 6: Added InteractiveViewer zoom and pan support to non-empty Patient Data bubble graphs while leaving empty graph state unzoomed.
 
 ## Modified Files
 - `lib/app.dart`
@@ -122,9 +123,13 @@
   - `flutter test test\widget_test.dart` passed.
   - `flutter test` passed.
   - `flutter analyze` passed with no issues.
+- Phase 6 checks completed:
+  - `flutter test test\widget_test.dart` passed.
+  - `flutter test` passed.
+  - `flutter analyze` passed with no issues.
 
 ## Exact Next Step
-- Next phase: Phase 6, add zoom support to the Patient Data bubble graph.
+- Next phase: Phase 7, add live pressure trace to Home and Calibration.
 
 
 
