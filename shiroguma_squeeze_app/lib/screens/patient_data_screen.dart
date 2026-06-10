@@ -702,7 +702,7 @@ class _TimelineAxis {
     final start = DateTime(selectedDate.year, selectedDate.month);
     final lastDay = DateTime(selectedDate.year, selectedDate.month + 1, 0).day;
     final end = DateTime(selectedDate.year, selectedDate.month + 1);
-    final tickDays = <int>{1, 8, 15, 22, lastDay}.toList()..sort();
+    const tickDays = [1, 8, 15, 22];
 
     final ticks = [
       for (final day in tickDays)
@@ -725,7 +725,7 @@ class _TimelineAxis {
     final end = DateTime(selectedDate.year + 1);
     final ticks = [
       for (var month = 1; month <= 12; month += 1)
-        _TimelineTick(DateTime(selectedDate.year, month), '$month'),
+        _TimelineTick(_monthCenter(selectedDate.year, month), '$month'),
     ];
 
     return _TimelineAxis(start: start, end: end, ticks: ticks);
@@ -762,6 +762,14 @@ class _TimelineAxis {
       _ => lastDay + 1,
     };
     final end = DateTime(year, month, nextBucketDay);
+    return start.add(
+      Duration(milliseconds: end.difference(start).inMilliseconds ~/ 2),
+    );
+  }
+
+  static DateTime _monthCenter(int year, int month) {
+    final start = DateTime(year, month);
+    final end = DateTime(year, month + 1);
     return start.add(
       Duration(milliseconds: end.difference(start).inMilliseconds ~/ 2),
     );

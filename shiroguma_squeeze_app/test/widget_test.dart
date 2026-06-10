@@ -558,7 +558,7 @@ void main() {
     expect(find.text('10:45'), findsNothing);
   });
 
-  testWidgets('week and month axis labels are centered in buckets', (
+  testWidgets('week month and year axis labels are centered in buckets', (
     tester,
   ) async {
     await tester.pumpWidget(const ShirogumaApp());
@@ -599,8 +599,13 @@ void main() {
     final now = DateTime.now();
     final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
     final firstBucketCenterFraction = 3.5 / daysInMonth;
+    final finalBucketCenterFraction =
+        (21 + (daysInMonth - 21) / 2) / daysInMonth;
     final firstMonthLabel = tester.getCenter(
       find.text('${now.month.toString().padLeft(2, '0')}/01'),
+    );
+    final finalMonthLabel = tester.getCenter(
+      find.text('${now.month.toString().padLeft(2, '0')}/22'),
     );
 
     expect(
@@ -611,6 +616,33 @@ void main() {
             monthUsableWidth * firstBucketCenterFraction,
         2,
       ),
+    );
+    expect(
+      finalMonthLabel.dx,
+      closeTo(
+        graphLeft +
+            monthAxisInset +
+            monthUsableWidth * finalBucketCenterFraction,
+        2,
+      ),
+    );
+
+    await tester.tap(find.text('Year'));
+    await tester.pumpAndSettle();
+
+    const yearLabelWidth = 44.0;
+    final yearAxisInset = yearLabelWidth / 2 + 4;
+    final yearUsableWidth = graphWidth - yearAxisInset * 2;
+    final firstYearLabel = tester.getCenter(find.text('1').last);
+    final lastYearLabel = tester.getCenter(find.text('12').last);
+
+    expect(
+      firstYearLabel.dx,
+      closeTo(graphLeft + yearAxisInset + yearUsableWidth / 24, 2),
+    );
+    expect(
+      lastYearLabel.dx,
+      closeTo(graphLeft + yearAxisInset + yearUsableWidth * 23 / 24, 2),
     );
   });
 

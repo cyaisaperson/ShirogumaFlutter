@@ -24,6 +24,7 @@
 - Patient management polish: Edit patient mode now supports confirmed patient deletion, and active patient cards use the prior coral color treatment again.
 - Current UI Fix Phase 1: Moved live MVS calibration out of Patient Data and into the Patients page flow for new-patient prompts and edit-patient recalibration. Patient Data now shows calibration values as a read-only summary.
 - Current UI Fix Phase 2: Centered Patient Data bubble graph week labels in day buckets and month labels in date buckets.
+- Current UI Fix Phase 2 follow-up: Corrected month final-bucket labels and year labels so both use bucket-center positions.
 
 ## Modified Files
 - `lib/app.dart`
