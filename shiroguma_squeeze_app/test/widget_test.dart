@@ -558,6 +558,62 @@ void main() {
     expect(find.text('10:45'), findsNothing);
   });
 
+  testWidgets('week and month axis labels are centered in buckets', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ShirogumaApp());
+
+    await tester.tap(find.text('Patients').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Marcus Tate'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Data').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Week'));
+    await tester.pumpAndSettle();
+
+    final graph = find.byKey(const ValueKey('bubble-timeline-graph'));
+    final graphLeft = tester.getTopLeft(graph).dx;
+    final graphWidth = tester.getSize(graph).width;
+    const weekLabelWidth = 44.0;
+    final weekAxisInset = weekLabelWidth / 2 + 4;
+    final weekUsableWidth = graphWidth - weekAxisInset * 2;
+    final weekBucketWidth = weekUsableWidth / 7;
+
+    expect(
+      tester.getCenter(find.text('Mon')).dx,
+      closeTo(graphLeft + weekAxisInset + weekBucketWidth / 2, 2),
+    );
+    expect(
+      tester.getCenter(find.text('Sun')).dx,
+      closeTo(graphLeft + weekAxisInset + weekBucketWidth * 6.5, 2),
+    );
+
+    await tester.tap(find.text('Month'));
+    await tester.pumpAndSettle();
+
+    const monthLabelWidth = 64.0;
+    final monthAxisInset = monthLabelWidth / 2 + 4;
+    final monthUsableWidth = graphWidth - monthAxisInset * 2;
+    final now = DateTime.now();
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    final firstBucketCenterFraction = 3.5 / daysInMonth;
+    final firstMonthLabel = tester.getCenter(
+      find.text('${now.month.toString().padLeft(2, '0')}/01'),
+    );
+
+    expect(
+      firstMonthLabel.dx,
+      closeTo(
+        graphLeft +
+            monthAxisInset +
+            monthUsableWidth * firstBucketCenterFraction,
+        2,
+      ),
+    );
+  });
+
   testWidgets('calendar controls share the range row above the graph', (
     tester,
   ) async {
