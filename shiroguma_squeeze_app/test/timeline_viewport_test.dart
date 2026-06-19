@@ -34,17 +34,17 @@ void main() {
     expect(viewport.panByFraction(100).visibleEnd, fullEnd);
   });
 
-  test('zoom cannot shrink below minimum window', () {
+  test('zoom cannot shrink below one-minute minimum window', () {
     final fullStart = DateTime(2026, 6, 10);
     final viewport = TimelineViewport.full(
       fullStart: fullStart,
       fullEnd: fullStart.add(const Duration(days: 1)),
-      minWindow: const Duration(minutes: 15),
+      minWindow: const Duration(minutes: 1),
     );
 
-    final zoomed = viewport.zoomAround(focalFraction: 0.5, scaleDelta: 500);
+    final zoomed = viewport.zoomAround(focalFraction: 0.5, scaleDelta: 50000);
 
-    expect(zoomed.visibleDuration, const Duration(minutes: 15));
+    expect(zoomed.visibleDuration, const Duration(minutes: 1));
   });
 
   test('reset restores the full visible range', () {

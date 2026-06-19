@@ -682,12 +682,7 @@ class _PainTimelineGraphState extends State<_PainTimelineGraph> {
       'Year' => DateTime(selectedDate.year + 1),
       _ => start.add(const Duration(days: 1)),
     };
-    final minWindow = switch (selectedRange) {
-      'Week' => const Duration(hours: 1),
-      'Month' => const Duration(hours: 6),
-      'Year' => const Duration(days: 1),
-      _ => const Duration(minutes: 15),
-    };
+    const minWindow = Duration(minutes: 1);
 
     return TimelineViewport.full(
       fullStart: start,
@@ -858,7 +853,9 @@ class _TimelineAxis {
     }
 
     final duration = viewport.visibleDuration;
-    final ticks = duration <= const Duration(hours: 2)
+    final ticks = duration <= const Duration(minutes: 10)
+        ? _timeTicks(viewport, const Duration(minutes: 1))
+        : duration <= const Duration(hours: 2)
         ? _timeTicks(viewport, const Duration(minutes: 15))
         : duration <= const Duration(hours: 8)
         ? _timeTicks(viewport, const Duration(hours: 1))
@@ -1161,7 +1158,9 @@ class _PainBubbleState extends State<_PainBubble> {
         width: radius * 2,
         height: radius * 2,
         decoration: BoxDecoration(
-          color: widget.isSelected ? AppColors.coralDark : AppColors.coral,
+          color: widget.isSelected
+              ? AppColors.coralDark.withValues(alpha: 0.78)
+              : AppColors.coral.withValues(alpha: 0.68),
           shape: BoxShape.circle,
           border: Border.all(
             color: widget.isSelected ? AppColors.ink : Colors.white,

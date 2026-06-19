@@ -622,6 +622,14 @@ void main() {
       expect(levelOneBubble, findsOneWidget);
       expect(levelFiveBubble, findsOneWidget);
       expect(tester.getSize(levelOneBubble).width, greaterThanOrEqualTo(28));
+      final levelOneContainer = tester.widget<AnimatedContainer>(
+        find.descendant(
+          of: levelOneBubble,
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      final levelOneDecoration = levelOneContainer.decoration as BoxDecoration;
+      expect(levelOneDecoration.color?.a, lessThan(1));
       expect(find.text('1'), findsWidgets);
       expect(find.text('5'), findsWidgets);
       expect(find.text('0:00'), findsWidgets);
