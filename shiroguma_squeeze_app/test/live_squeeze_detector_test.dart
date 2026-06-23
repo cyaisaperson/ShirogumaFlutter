@@ -53,7 +53,7 @@ void main() {
     expect(event.deviceId, 'PressureTX');
     expect(event.peakPressure, 1540);
     expect(event.normalizedSas, greaterThan(0));
-    expect(event.painLevel, inInclusiveRange(1, 5));
+    expect([2, 4, 6, 8, 10], contains(event.painLevel));
     expect(event.startTime, start.add(const Duration(milliseconds: 50)));
     expect(event.endTime, start.add(const Duration(milliseconds: 450)));
   });

@@ -433,7 +433,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Selected pain event'), findsOneWidget);
-    expect(find.text('Wong-Baker face image placeholder'), findsOneWidget);
+    expect(find.text('Wong-Baker face image placeholder'), findsNothing);
     expect(find.byKey(const ValueKey('patient-summary-card')), findsOneWidget);
     expect(find.byKey(const ValueKey('patient-graph-card')), findsNothing);
     expect(find.text('Total events'), findsNothing);
@@ -595,7 +595,8 @@ void main() {
     await tester.tap(weekBubble);
     await tester.pumpAndSettle();
 
-    expect(find.text('Level 5'), findsWidgets);
+    expect(find.text('Level 10'), findsWidgets);
+    expect(find.byKey(const ValueKey('wong-baker-face-image')), findsOneWidget);
     expect(find.text('91'), findsOneWidget);
   });
 
@@ -630,8 +631,8 @@ void main() {
       );
       final levelOneDecoration = levelOneContainer.decoration as BoxDecoration;
       expect(levelOneDecoration.color?.a, lessThan(1));
-      expect(find.text('1'), findsWidgets);
-      expect(find.text('5'), findsWidgets);
+      expect(find.text('2'), findsWidgets);
+      expect(find.text('10'), findsWidgets);
       expect(find.text('0:00'), findsWidgets);
       expect(find.text('6:00'), findsOneWidget);
       expect(find.text('12:00'), findsOneWidget);

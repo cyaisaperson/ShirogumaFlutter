@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shiroguma_squeeze_app/models/pain_event.dart';
@@ -83,7 +85,7 @@ void main() {
       startTime: DateTime(2026, 6, 4, 9, 29, 55),
       endTime: DateTime(2026, 6, 4, 9, 30, 5),
       durationMs: 10000,
-      painLevel: 3,
+      painLevel: 2,
       peakPressure: 1400,
       averagePeakPressure: 1388,
       normalizedSas: 52,
@@ -106,8 +108,63 @@ void main() {
     expect(persistedEvent.source, 'live_ble');
     expect(persistedEvent.deviceId, 'PressureTX');
     expect(persistedEvent.normalizedSas, 52);
+    expect(persistedEvent.painLevel, 2);
   });
 
+  test('legacy pain events migrate from 1-5 scale to 2-10 scale', () async {
+    final legacyEvent = PainEvent(
+      id: 'event-legacy-scale',
+      patientId: 'patient-anya',
+      timestamp: DateTime(2026, 6, 4, 9, 30),
+      painLevel: 2,
+      peakPressure: 1400,
+      averagePeakPressure: 1388,
+      normalizedSas: 36,
+      baselinePressure: 1010,
+      mvsPressure: 2250,
+      source: 'live_ble',
+    );
+    SharedPreferences.setMockInitialValues({
+      'shiroguma.pain_events.v1': jsonEncode([legacyEvent.toJson()]),
+    });
+
+    final state = AppState.seeded();
+    await state.loadPersistedState();
+    final migratedEvent = state.painEvents.firstWhere(
+      (event) => event.id == 'event-legacy-scale',
+    );
+    final preferences = await SharedPreferences.getInstance();
+
+    expect(migratedEvent.painLevel, 4);
+    expect(preferences.getString('shiroguma.pain_events.v1'), isNull);
+    expect(preferences.getString('shiroguma.pain_events.v2'), isNotNull);
+  });
+
+  test('v2 pain events keep level 2 without legacy remapping', () async {
+    final currentEvent = PainEvent(
+      id: 'event-current-scale',
+      patientId: 'patient-anya',
+      timestamp: DateTime(2026, 6, 4, 9, 30),
+      painLevel: 2,
+      peakPressure: 1260,
+      averagePeakPressure: 1238,
+      normalizedSas: 18,
+      baselinePressure: 1008,
+      mvsPressure: 2250,
+      source: 'live_ble',
+    );
+    SharedPreferences.setMockInitialValues({
+      'shiroguma.pain_events.v2': jsonEncode([currentEvent.toJson()]),
+    });
+
+    final state = AppState.seeded();
+    await state.loadPersistedState();
+    final restoredEvent = state.painEvents.firstWhere(
+      (event) => event.id == 'event-current-scale',
+    );
+
+    expect(restoredEvent.painLevel, 2);
+  });
   test(
     'delete patient removes profile calibration events and active selection',
     () async {
@@ -130,7 +187,7 @@ void main() {
           startTime: DateTime(2026, 6, 4, 9, 29, 55),
           endTime: DateTime(2026, 6, 4, 9, 30, 5),
           durationMs: 10000,
-          painLevel: 3,
+          painLevel: 2,
           peakPressure: 1400,
           averagePeakPressure: 1388,
           normalizedSas: 52,

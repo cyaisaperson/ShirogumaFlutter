@@ -1,6 +1,7 @@
 import '../models/app_settings.dart';
 import '../models/calibration.dart';
 import '../models/pain_event.dart';
+import '../utils/pain_scale.dart';
 import 'pressure_processing_service.dart';
 
 class LiveSqueezeDetector {
@@ -120,12 +121,7 @@ class LiveSqueezeDetector {
   }
 
   static int painLevelForSas(int normalizedSas) {
-    if (normalizedSas <= 0) return 0;
-    if (normalizedSas <= 20) return 1;
-    if (normalizedSas <= 40) return 2;
-    if (normalizedSas <= 60) return 3;
-    if (normalizedSas <= 80) return 4;
-    return 5;
+    return PainScale.forNormalizedSas(normalizedSas);
   }
 }
 

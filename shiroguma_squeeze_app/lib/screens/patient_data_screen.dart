@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/calibration.dart';
 import '../models/pain_event.dart';
+import '../utils/pain_scale.dart';
 import '../models/patient.dart';
 import '../models/timeline_viewport.dart';
 import '../services/csv_export_service.dart';
@@ -1191,11 +1192,11 @@ class _PainBubbleState extends State<_PainBubble> {
 
 double _bubbleRadius(int painLevel) {
   return switch (painLevel) {
-    1 => 14,
-    2 => 16,
-    3 => 18,
-    4 => 21,
-    5 => 24,
+    2 => 14,
+    4 => 16,
+    6 => 18,
+    8 => 21,
+    10 => 24,
     _ => 0,
   };
 }
@@ -1467,20 +1468,10 @@ class _SelectedEventCard extends StatelessWidget {
             ),
             _DetailLine(label: 'Source', value: event!.source),
           ],
-          const SizedBox(height: 14),
-          Container(
-            height: 72,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            alignment: Alignment.center,
-            child: const Text(
-              'Wong-Baker face image placeholder',
-              style: TextStyle(color: Colors.white70),
-            ),
-          ),
+          if (event != null) ...[
+            const SizedBox(height: 14),
+            _WongBakerFaceImage(painLevel: event!.painLevel),
+          ],
         ],
       ),
     );
@@ -1492,6 +1483,36 @@ class _SelectedEventCard extends StatelessWidget {
     final hour = value.hour.toString().padLeft(2, '0');
     final minute = value.minute.toString().padLeft(2, '0');
     return '$month/$day $hour:$minute';
+  }
+}
+
+class _WongBakerFaceImage extends StatelessWidget {
+  const _WongBakerFaceImage({required this.painLevel});
+
+  final int painLevel;
+
+  @override
+  Widget build(BuildContext context) {
+    final assetPath = PainScale.wongBakerAssetForLevel(painLevel);
+    if (assetPath == null) {
+      return const SizedBox.shrink();
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 136,
+        width: double.infinity,
+        color: Colors.white,
+        alignment: Alignment.center,
+        child: Image.asset(
+          assetPath,
+          key: const ValueKey('wong-baker-face-image'),
+          fit: BoxFit.contain,
+          semanticLabel: 'Wong-Baker pain level $painLevel face',
+        ),
+      ),
+    );
   }
 }
 

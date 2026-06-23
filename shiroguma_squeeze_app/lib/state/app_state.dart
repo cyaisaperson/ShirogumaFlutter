@@ -7,6 +7,7 @@ import '../models/app_settings.dart';
 import '../models/calibration.dart';
 import '../models/pain_event.dart';
 import '../models/patient.dart';
+import '../utils/pain_scale.dart';
 import 'mock_data.dart';
 
 class AppState extends ChangeNotifier {
@@ -36,7 +37,8 @@ class AppState extends ChangeNotifier {
   static const _patientsStorageKey = 'shiroguma.patients.v1';
   static const _settingsStorageKey = 'shiroguma.settings.v1';
   static const _calibrationsStorageKey = 'shiroguma.calibrations.v1';
-  static const _painEventsStorageKey = 'shiroguma.pain_events.v1';
+  static const _legacyPainEventsStorageKey = 'shiroguma.pain_events.v1';
+  static const _painEventsStorageKey = 'shiroguma.pain_events.v2';
 
   List<Patient> get patients => List.unmodifiable(_patients);
   List<Calibration> get calibrations => List.unmodifiable(_calibrations);
@@ -125,7 +127,7 @@ class AppState extends ChangeNotifier {
     _loadSettings(preferences);
     _loadPatients(preferences);
     _loadCalibrations(preferences);
-    _loadPainEvents(preferences);
+    await _loadPainEvents(preferences);
     if (_settings.activePatientId != null &&
         _patientById(_settings.activePatientId!) == null) {
       _settings = _settings.copyWith(clearActivePatient: true);
@@ -178,19 +180,45 @@ class AppState extends ChangeNotifier {
       );
   }
 
-  void _loadPainEvents(SharedPreferences preferences) {
+  Future<void> _loadPainEvents(SharedPreferences preferences) async {
     final encodedPainEvents = preferences.getString(_painEventsStorageKey);
-    if (encodedPainEvents == null) {
+    if (encodedPainEvents != null) {
+      _replacePainEventsFromJson(encodedPainEvents, migrateLegacyScale: false);
       return;
     }
+
+    final encodedLegacyPainEvents = preferences.getString(
+      _legacyPainEventsStorageKey,
+    );
+    if (encodedLegacyPainEvents == null) {
+      return;
+    }
+
+    _replacePainEventsFromJson(
+      encodedLegacyPainEvents,
+      migrateLegacyScale: true,
+    );
+    await _persistPainEvents();
+    await preferences.remove(_legacyPainEventsStorageKey);
+  }
+
+  void _replacePainEventsFromJson(
+    String encodedPainEvents, {
+    required bool migrateLegacyScale,
+  }) {
     final decodedPainEvents = jsonDecode(encodedPainEvents) as List<dynamic>;
     _painEvents
       ..clear()
       ..addAll(
-        decodedPainEvents.map(
-          (eventJson) =>
-              PainEvent.fromJson(Map<String, Object?>.from(eventJson as Map)),
-        ),
+        decodedPainEvents.map((eventJson) {
+          final json = Map<String, Object?>.from(eventJson as Map);
+          if (migrateLegacyScale) {
+            json['painLevel'] = PainScale.fromLegacyLevel(
+              json['painLevel'] as int,
+            );
+          }
+          return PainEvent.fromJson(json);
+        }),
       );
   }
 
@@ -308,6 +336,7 @@ class AppState extends ChangeNotifier {
       preferences.remove(_settingsStorageKey),
       preferences.remove(_calibrationsStorageKey),
       preferences.remove(_painEventsStorageKey),
+      preferences.remove(_legacyPainEventsStorageKey),
     ]);
     _patients
       ..clear()
