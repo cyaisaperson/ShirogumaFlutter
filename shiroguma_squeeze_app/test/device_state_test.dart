@@ -1,6 +1,8 @@
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shiroguma_squeeze_app/models/app_settings.dart';
+import 'package:shiroguma_squeeze_app/models/calibration.dart';
+import 'package:shiroguma_squeeze_app/models/pain_event.dart';
 import 'package:shiroguma_squeeze_app/services/ble_service.dart';
 import 'package:shiroguma_squeeze_app/state/device_state.dart';
 
@@ -132,10 +134,54 @@ void main() {
       expect(state.status, DeviceConnectionStatus.connected);
     },
   );
+
+  test(
+    'SD Card Mode still saves live BLE squeeze events while connected',
+    () async {
+      final fakeBleService = _FakeBleService();
+      final savedEvents = <PainEvent>[];
+      final state = DeviceState(bleServiceFactory: (_) => fakeBleService);
+      const settings = AppSettings(dataMode: DataMode.sdCard);
+
+      state.configureLiveDetection(
+        activePatientId: 'patient-sd-live',
+        calibration: Calibration(
+          id: 'calibration-sd-live',
+          patientId: 'patient-sd-live',
+          baselinePressure: 1000,
+          mvsPressure: 2000,
+          samplesUsed: 12,
+          createdAt: DateTime(2026, 6, 24),
+        ),
+        settings: settings,
+        onPainEvent: (event) async {
+          savedEvents.add(event);
+        },
+      );
+
+      await state.connect(settings);
+      expect(state.liveSavingStatus, 'Live saving ready');
+
+      fakeBleService.emitPressure(1010);
+      fakeBleService.emitPressure(1080);
+      fakeBleService.emitPressure(1450);
+      fakeBleService.emitPressure(1500);
+      fakeBleService.emitPressure(1490);
+      fakeBleService.emitPressure(1010);
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+      fakeBleService.emitPressure(1005);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(savedEvents, hasLength(1));
+      expect(savedEvents.single.patientId, 'patient-sd-live');
+      expect(savedEvents.single.source, 'live_ble');
+    },
+  );
 }
 
 class _FakeBleService extends BleService {
   int connectAttempts = 0;
+  void Function(double pressure)? onPressure;
   void Function(BluetoothConnectionState state)? onConnectionState;
 
   @override
@@ -145,7 +191,12 @@ class _FakeBleService extends BleService {
     void Function(BluetoothConnectionState state)? onConnectionState,
   }) async {
     connectAttempts += 1;
+    this.onPressure = onPressure;
     this.onConnectionState = onConnectionState;
+  }
+
+  void emitPressure(double pressure) {
+    onPressure?.call(pressure);
   }
 
   void emitConnectionState(BluetoothConnectionState state) {

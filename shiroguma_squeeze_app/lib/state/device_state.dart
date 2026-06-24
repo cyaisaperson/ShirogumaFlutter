@@ -110,9 +110,6 @@ class DeviceState extends ChangeNotifier {
   double? get liveCalibrationBaselinePressure =>
       _liveCalibrationBaselinePressure;
   String get liveSavingStatus {
-    if (_liveSettings.dataMode != DataMode.liveBle) {
-      return 'Blocked: SD Card mode';
-    }
     if (!isConnected) {
       return 'Blocked: BLE disconnected';
     }
@@ -390,8 +387,7 @@ class DeviceState extends ChangeNotifier {
   }
 
   bool get _canSaveLiveEvents {
-    return _liveSettings.dataMode == DataMode.liveBle &&
-        isConnected &&
+    return isConnected &&
         _livePatientId != null &&
         _liveCalibration != null &&
         _saveLivePainEvent != null;
