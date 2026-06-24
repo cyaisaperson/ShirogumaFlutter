@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_settings.dart';
+import '../services/ble_service.dart';
 import '../state/app_state_scope.dart';
 import '../state/device_state_scope.dart';
 import '../state/sd_card_sync_state_scope.dart';
@@ -47,7 +48,7 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     ButtonSegment(
                       value: DataMode.sdCard,
-                      label: Text('SD Card Sync'),
+                      label: Text('SD Card Mode'),
                       icon: Icon(Icons.sd_card),
                     ),
                   ],
@@ -88,6 +89,22 @@ class SettingsScreen extends StatelessWidget {
                 _SettingRow(
                   label: 'Battery characteristic UUID',
                   value: settings.batteryCharacteristicUuid,
+                ),
+                const _SettingRow(
+                  label: 'SD status UUID',
+                  value: SdBleProtocol.statusCharacteristicUuid,
+                ),
+                const _SettingRow(
+                  label: 'SD data UUID',
+                  value: SdBleProtocol.dataCharacteristicUuid,
+                ),
+                const _SettingRow(
+                  label: 'SD command UUID',
+                  value: SdBleProtocol.commandCharacteristicUuid,
+                ),
+                const _SettingRow(
+                  label: 'SD control UUID',
+                  value: SdBleProtocol.recordingControlCharacteristicUuid,
                 ),
                 _SettingRow(
                   label: 'Connection',
@@ -191,16 +208,18 @@ class SettingsScreen extends StatelessWidget {
                   label: 'Imported events',
                   value: syncState.importedEvents.toString(),
                 ),
+                _SettingRow(
+                  label: 'Duplicates skipped',
+                  value: syncState.duplicatesSkipped.toString(),
+                ),
+                _SettingRow(
+                  label: 'Malformed rows',
+                  value: syncState.malformedRows.toString(),
+                ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Future flow: connect to device, request stored SD log, parse historical pressure samples, assign timestamps, save under the active patient, and avoid duplicate imports.',
+                  'In SD Card Mode, connect to PressureTX to pause device-side SD recording, sync stored SD files, select the patient, import events, and delete SD data only after a successful import.',
                   style: TextStyle(color: AppColors.mutedText),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: null,
-                  icon: const Icon(Icons.sync_disabled),
-                  label: const Text('Coming later'),
                 ),
               ],
             ),

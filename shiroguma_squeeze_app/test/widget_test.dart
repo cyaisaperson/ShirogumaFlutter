@@ -95,11 +95,14 @@ void main() {
 
     expect(find.text('Data mode'), findsOneWidget);
     expect(find.text('Live BLE'), findsWidgets);
-    expect(find.text('SD Card Sync'), findsWidgets);
-    await tester.tap(find.text('SD Card Sync').first);
+    expect(find.text('SD Card Mode'), findsWidgets);
+    await tester.tap(find.text('SD Card Mode').first);
     await tester.pumpAndSettle();
 
     expect(find.text('Battery characteristic UUID'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('SD status UUID'), 200);
+    await tester.pumpAndSettle();
+    expect(find.text('SD status UUID'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Stable window'), 200);
     await tester.pumpAndSettle();
     expect(find.text('Stable window'), findsOneWidget);
@@ -108,14 +111,14 @@ void main() {
     expect(find.text('Local JSON storage'), findsOneWidget);
     expect(find.text('Active patient'), findsOneWidget);
     expect(find.text('Anya Rahimi'), findsWidgets);
-    await tester.scrollUntilVisible(find.text('Coming later'), 200);
+    await tester.scrollUntilVisible(find.text('SD Card Mode ready.'), 200);
     await tester.pumpAndSettle();
-    expect(find.text('Coming later'), findsOneWidget);
+    expect(find.text('SD Card Mode ready.'), findsOneWidget);
     expect(
-      find.textContaining('parse historical pressure samples'),
+      find.textContaining('delete SD data only after a successful import'),
       findsOneWidget,
     );
-    expect(find.textContaining('avoid duplicate imports'), findsOneWidget);
+    expect(find.text('Duplicates skipped'), findsOneWidget);
     expect(find.text('Clear local database'), findsOneWidget);
 
     await tester.tap(find.text('Home').last);

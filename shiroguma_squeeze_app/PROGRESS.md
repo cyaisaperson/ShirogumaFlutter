@@ -140,6 +140,64 @@
 ## Exact Next Step
 - Next phase: Phase 7, add live pressure trace to Home and Calibration.
 
+## 2026-06-19 SD Card Mode Implementation
+
+### Files Changed
+- `lib/app.dart`
+- `lib/models/app_settings.dart`
+- `lib/screens/settings_screen.dart`
+- `lib/services/ble_service.dart`
+- `lib/services/sync_service.dart`
+- `lib/state/app_state.dart`
+- `lib/state/device_state.dart`
+- `lib/state/sd_card_sync_state.dart`
+- `test/sync_service_test.dart`
+
+### Completed Work
+- Added SD Card Mode connection flow that starts only when `DataMode.sdCard` is selected.
+- Kept Live BLE pressure, battery, calibration, and live event-saving paths unchanged.
+- Added expected SD BLE UUIDs in `SdBleProtocol`:
+  - SD status: `abcd1234-5678-4321-abcd-1234567890b0`
+  - SD data transfer: `abcd1234-5678-4321-abcd-1234567890b1`
+  - SD command: `abcd1234-5678-4321-abcd-1234567890b2`
+  - SD recording control: `abcd1234-5678-4321-abcd-1234567890b3`
+- Added app-side commands for `SD_PAUSE`, `SD_RESUME`, `SYNC_START`, `SYNC_CANCEL`, and `SYNC_DONE_DELETE`.
+- Added SD transfer parsing for tagged `raw.csv` / `events.csv` payloads and direct `events.csv` payloads.
+- Added robust `events.csv` parsing for `event_id,start_ms,end_ms,duration_ms,baseline_mbar,peak_mbar,delta_mbar`.
+- Added SD event import into selected patient history with duplicate prevention via stable `externalSampleId`.
+- Added patient-selection popup titled `Select patient for imported data`.
+- Added status messages for checking, syncing, patient selection, import complete, SD deletion, and failure-with-data-kept cases.
+- Added tests for SD CSV parsing, malformed-row skipping, transfer payload extraction, and duplicate-safe import planning.
+
+### Pending Arduino-Side BLE Characteristic Work
+- Add the four SD BLE characteristics listed above to the `PressureTX` service.
+- On app connect / `SD_PAUSE`, pause SD recording while keeping live pressure and battery BLE notifications active.
+- On app disconnect / `SD_RESUME`, resume standalone SD recording when the app is not connected.
+- Implement SD status read/notify values such as `EMPTY`, `HAS_DATA`, or an error string.
+- Implement `SYNC_START` to notify SD data chunks on the SD data characteristic.
+- End transfer with `SYNC_END`; use `SYNC_EMPTY` when no SD data exists.
+- Stream payloads in this format:
+  - `FILE:raw.csv`
+  - raw CSV contents
+  - `END_FILE`
+  - `FILE:events.csv`
+  - events CSV contents
+  - `END_FILE`
+  - `SYNC_END`
+- Implement `SYNC_DONE_DELETE` to delete only the SD files that were successfully synced.
+- Implement `SYNC_CANCEL` so failed or canceled app imports leave SD files intact.
+
+### Exact Next Steps
+- Update the Arduino firmware to expose and honor the SD BLE protocol above.
+- Hardware-test SD Card Mode with a real XIAO nRF52840 and microSD BFF:
+  - connect in SD Card Mode
+  - verify `SD_PAUSE`
+  - sync stored files
+  - select patient
+  - confirm imported history
+  - confirm `SYNC_DONE_DELETE` deletes only after successful import
+- Re-test failure cases with the device: disconnect mid-transfer, malformed CSV, empty SD files, and repeated sync attempts.
+
 
 
 

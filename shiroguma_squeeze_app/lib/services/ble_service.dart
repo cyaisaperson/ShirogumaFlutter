@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -40,6 +41,38 @@ class BleDiscoveredDevice {
   }
 }
 
+class SdBleProtocol {
+  const SdBleProtocol._();
+
+  static const statusCharacteristicUuid =
+      'abcd1234-5678-4321-abcd-1234567890b0';
+  static const dataCharacteristicUuid = 'abcd1234-5678-4321-abcd-1234567890b1';
+  static const commandCharacteristicUuid =
+      'abcd1234-5678-4321-abcd-1234567890b2';
+  static const recordingControlCharacteristicUuid =
+      'abcd1234-5678-4321-abcd-1234567890b3';
+
+  static const syncStart = 'SYNC_START';
+  static const syncDoneDelete = 'SYNC_DONE_DELETE';
+  static const syncCancel = 'SYNC_CANCEL';
+  static const sdPause = 'SD_PAUSE';
+  static const sdResume = 'SD_RESUME';
+  static const syncEnd = 'SYNC_END';
+  static const syncEmpty = 'SYNC_EMPTY';
+}
+
+class SdBleDownloadResult {
+  const SdBleDownloadResult({
+    required this.hasData,
+    required this.payload,
+    required this.status,
+  });
+
+  final bool hasData;
+  final String payload;
+  final String status;
+}
+
 class BleService {
   static const defaultDeviceName = 'PressureTX';
 
@@ -48,16 +81,29 @@ class BleService {
     this.serviceUuid = '12345678-1234-1234-1234-1234567890ab',
     this.pressureCharacteristicUuid = 'abcd1234-5678-4321-abcd-1234567890ab',
     this.batteryCharacteristicUuid = 'abcd1234-5678-4321-abcd-1234567890ac',
+    this.sdStatusCharacteristicUuid = SdBleProtocol.statusCharacteristicUuid,
+    this.sdDataCharacteristicUuid = SdBleProtocol.dataCharacteristicUuid,
+    this.sdCommandCharacteristicUuid = SdBleProtocol.commandCharacteristicUuid,
+    this.sdRecordingControlCharacteristicUuid =
+        SdBleProtocol.recordingControlCharacteristicUuid,
   });
 
   final String deviceName;
   final String serviceUuid;
   final String pressureCharacteristicUuid;
   final String batteryCharacteristicUuid;
+  final String sdStatusCharacteristicUuid;
+  final String sdDataCharacteristicUuid;
+  final String sdCommandCharacteristicUuid;
+  final String sdRecordingControlCharacteristicUuid;
 
   BluetoothDevice? _device;
   BluetoothCharacteristic? _pressureCharacteristic;
   BluetoothCharacteristic? _batteryCharacteristic;
+  BluetoothCharacteristic? _sdStatusCharacteristic;
+  BluetoothCharacteristic? _sdDataCharacteristic;
+  BluetoothCharacteristic? _sdCommandCharacteristic;
+  BluetoothCharacteristic? _sdRecordingControlCharacteristic;
   StreamSubscription<List<ScanResult>>? _scanSubscription;
   StreamSubscription<List<int>>? _pressureSubscription;
   StreamSubscription<List<int>>? _batterySubscription;
@@ -186,6 +232,28 @@ class BleService {
       services,
       batteryCharacteristicUuid,
     );
+    _sdStatusCharacteristic = _findOptionalCharacteristic(
+      services,
+      sdStatusCharacteristicUuid,
+    );
+    _sdDataCharacteristic = _findOptionalCharacteristic(
+      services,
+      sdDataCharacteristicUuid,
+    );
+    _sdCommandCharacteristic = _findOptionalCharacteristic(
+      services,
+      sdCommandCharacteristicUuid,
+    );
+    _sdRecordingControlCharacteristic = _findOptionalCharacteristic(
+      services,
+      sdRecordingControlCharacteristicUuid,
+    );
+    debugPrint(
+      '[BLE] SD characteristics: status=${_sdStatusCharacteristic != null}, '
+      'data=${_sdDataCharacteristic != null}, '
+      'command=${_sdCommandCharacteristic != null}, '
+      'control=${_sdRecordingControlCharacteristic != null}',
+    );
 
     await _pressureCharacteristic!.setNotifyValue(true);
     debugPrint(
@@ -210,6 +278,96 @@ class BleService {
     });
   }
 
+  Future<void> pauseSdRecording() async {
+    final characteristic = _sdRecordingControlCharacteristic;
+    if (characteristic == null) {
+      debugPrint(
+        '[BLE] SD recording control characteristic not available; '
+        'continuing because firmware pauses SD recording on connect.',
+      );
+      return;
+    }
+    await _writeText(characteristic, SdBleProtocol.sdPause);
+  }
+
+  Future<void> resumeSdRecording() async {
+    final characteristic = _sdRecordingControlCharacteristic;
+    if (characteristic == null) {
+      return;
+    }
+    await _writeText(characteristic, SdBleProtocol.sdResume);
+  }
+
+  Future<void> cancelSdSync() async {
+    final characteristic = _sdCommandCharacteristic;
+    if (characteristic == null) {
+      return;
+    }
+    await _writeText(characteristic, SdBleProtocol.syncCancel);
+  }
+
+  Future<void> deleteSyncedSdData() async {
+    await _writeText(
+      _sdCommandCharacteristic,
+      SdBleProtocol.syncDoneDelete,
+      requiredFor: 'SD delete command',
+    );
+  }
+
+  Future<SdBleDownloadResult> downloadSdData({
+    Duration timeout = const Duration(minutes: 2),
+    void Function(String status)? onStatus,
+  }) async {
+    final dataCharacteristic = _sdDataCharacteristic;
+    final commandCharacteristic = _sdCommandCharacteristic;
+    if (dataCharacteristic == null || commandCharacteristic == null) {
+      throw StateError(
+        'SD sync characteristics not available. Expected '
+        '${SdBleProtocol.statusCharacteristicUuid}, '
+        '${SdBleProtocol.dataCharacteristicUuid}, '
+        '${SdBleProtocol.commandCharacteristicUuid}, and '
+        '${SdBleProtocol.recordingControlCharacteristicUuid}.',
+      );
+    }
+
+    final status = await _readSdStatus();
+    onStatus?.call(status);
+    if (_isEmptySdStatus(status)) {
+      return SdBleDownloadResult(hasData: false, payload: '', status: status);
+    }
+
+    final buffer = StringBuffer();
+    final completer = Completer<String>();
+    StreamSubscription<List<int>>? subscription;
+    await dataCharacteristic.setNotifyValue(true);
+    subscription = dataCharacteristic.lastValueStream.listen((bytes) {
+      final chunk = utf8.decode(bytes, allowMalformed: true);
+      buffer.write(chunk);
+      final payload = buffer.toString();
+      if (!completer.isCompleted &&
+          (payload.contains(SdBleProtocol.syncEnd) ||
+              payload.contains(SdBleProtocol.syncEmpty))) {
+        completer.complete(payload);
+      }
+    });
+
+    try {
+      await _writeText(commandCharacteristic, SdBleProtocol.syncStart);
+      final payload = await completer.future.timeout(timeout);
+      final hasData =
+          !payload.contains(SdBleProtocol.syncEmpty) &&
+          payload.replaceAll(SdBleProtocol.syncEnd, '').trim().isNotEmpty;
+      return SdBleDownloadResult(
+        hasData: hasData,
+        payload: payload,
+        status: status,
+      );
+    } finally {
+      await subscription.cancel();
+      await dataCharacteristic.setNotifyValue(false).catchError((_) => false);
+    }
+  }
+
   Future<void> disconnect() async {
     await _pressureSubscription?.cancel();
     await _batterySubscription?.cancel();
@@ -226,6 +384,10 @@ class BleService {
     await _device?.disconnect().catchError((_) {});
     _pressureCharacteristic = null;
     _batteryCharacteristic = null;
+    _sdStatusCharacteristic = null;
+    _sdDataCharacteristic = null;
+    _sdCommandCharacteristic = null;
+    _sdRecordingControlCharacteristic = null;
     _device = null;
   }
 
@@ -323,6 +485,51 @@ class BleService {
       }
     }
     throw StateError('Characteristic $characteristicUuid not found.');
+  }
+
+  static BluetoothCharacteristic? _findOptionalCharacteristic(
+    List<BluetoothService> services,
+    String characteristicUuid,
+  ) {
+    for (final service in services) {
+      for (final characteristic in service.characteristics) {
+        if (characteristic.uuid.str.toLowerCase() ==
+            characteristicUuid.toLowerCase()) {
+          return characteristic;
+        }
+      }
+    }
+    return null;
+  }
+
+  Future<String> _readSdStatus() async {
+    final characteristic = _sdStatusCharacteristic;
+    if (characteristic == null) {
+      return 'UNKNOWN';
+    }
+    final bytes = await characteristic.read();
+    return utf8.decode(bytes, allowMalformed: true).trim();
+  }
+
+  static bool _isEmptySdStatus(String status) {
+    final normalized = status.trim().toUpperCase();
+    return normalized == 'EMPTY' ||
+        normalized == 'NO_DATA' ||
+        normalized == 'NO_SD_DATA';
+  }
+
+  static Future<void> _writeText(
+    BluetoothCharacteristic? characteristic,
+    String value, {
+    String? requiredFor,
+  }) async {
+    if (characteristic == null) {
+      if (requiredFor == null) {
+        return;
+      }
+      throw StateError('$requiredFor characteristic not available.');
+    }
+    await characteristic.write(utf8.encode(value), withoutResponse: false);
   }
 
   static String _displayNameFor(

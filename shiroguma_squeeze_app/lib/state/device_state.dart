@@ -178,7 +178,7 @@ class DeviceState extends ChangeNotifier {
         onConnectionState: (state) {
           if (state == BluetoothConnectionState.connected) {
             _connectedDeviceName = settings.preferredDeviceName;
-            _setStatus(DeviceConnectionStatus.connected);
+            notifyListeners();
           } else if (state == BluetoothConnectionState.disconnected) {
             _connectedDeviceName = null;
             _handleUnexpectedDisconnect();
@@ -243,7 +243,7 @@ class DeviceState extends ChangeNotifier {
         onConnectionState: (state) {
           if (state == BluetoothConnectionState.connected) {
             _connectedDeviceName = discoveredDevice.displayName;
-            _setStatus(DeviceConnectionStatus.connected);
+            notifyListeners();
           } else if (state == BluetoothConnectionState.disconnected) {
             _connectedDeviceName = null;
             _handleUnexpectedDisconnect();
@@ -282,12 +282,37 @@ class DeviceState extends ChangeNotifier {
     _manualDisconnecting = true;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    if (_lastConnectionSettings?.dataMode == DataMode.sdCard) {
+      await _bleService?.resumeSdRecording().catchError((_) {});
+    }
     await _bleService?.disconnect();
     _bleService = null;
     _connectedDeviceName = null;
     _discoveredDevices = const [];
     _liveSqueezeDetector = _buildLiveSqueezeDetector();
     _setStatus(DeviceConnectionStatus.disconnected);
+  }
+
+  Future<void> pauseSdRecording() async {
+    await _bleService?.pauseSdRecording();
+  }
+
+  Future<SdBleDownloadResult> downloadSdCardData({
+    void Function(String status)? onStatus,
+  }) async {
+    final service = _bleService;
+    if (service == null || !isConnected) {
+      throw StateError('Connect to the BLE device before syncing SD data.');
+    }
+    return service.downloadSdData(onStatus: onStatus);
+  }
+
+  Future<void> deleteSyncedSdData() async {
+    await _bleService?.deleteSyncedSdData();
+  }
+
+  Future<void> cancelSdSync() async {
+    await _bleService?.cancelSdSync();
   }
 
   Future<void> reconnectNow([AppSettings? fallbackSettings]) async {

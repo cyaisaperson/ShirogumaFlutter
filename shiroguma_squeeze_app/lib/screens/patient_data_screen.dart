@@ -1161,7 +1161,7 @@ class _PainBubbleState extends State<_PainBubble> {
         decoration: BoxDecoration(
           color: widget.isSelected
               ? AppColors.coralDark.withValues(alpha: 0.78)
-              : AppColors.coral.withValues(alpha: 0.68),
+              : AppColors.coral.withValues(alpha: 0.5),
           shape: BoxShape.circle,
           border: Border.all(
             color: widget.isSelected ? AppColors.ink : Colors.white,

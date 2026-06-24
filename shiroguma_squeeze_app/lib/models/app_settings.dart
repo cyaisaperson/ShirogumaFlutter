@@ -5,7 +5,7 @@ enum DataMode {
   String get label {
     return switch (this) {
       DataMode.liveBle => 'Live BLE',
-      DataMode.sdCard => 'SD Card Sync',
+      DataMode.sdCard => 'SD Card Mode',
     };
   }
 

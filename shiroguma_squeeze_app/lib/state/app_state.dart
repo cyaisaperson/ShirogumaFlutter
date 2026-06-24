@@ -329,6 +329,43 @@ class AppState extends ChangeNotifier {
     await _persistPainEvents();
   }
 
+  Future<int> importPainEvents(List<PainEvent> events) async {
+    if (events.isEmpty) {
+      return 0;
+    }
+    final existingExternalIds = _painEvents
+        .map((event) => event.externalSampleId)
+        .whereType<String>()
+        .toSet();
+    var importedCount = 0;
+    for (final event in events) {
+      final externalSampleId = event.externalSampleId;
+      if (externalSampleId != null &&
+          existingExternalIds.contains(externalSampleId)) {
+        continue;
+      }
+      final existingIndex = _painEvents.indexWhere(
+        (existingEvent) => existingEvent.id == event.id,
+      );
+      if (existingIndex == -1) {
+        _painEvents.insert(0, event);
+        importedCount += 1;
+      } else {
+        _painEvents[existingIndex] = event;
+      }
+      if (externalSampleId != null) {
+        existingExternalIds.add(externalSampleId);
+      }
+    }
+    if (importedCount == 0) {
+      return 0;
+    }
+    _painEvents.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    notifyListeners();
+    await _persistPainEvents();
+    return importedCount;
+  }
+
   Future<void> clearLocalDatabase() async {
     final preferences = await SharedPreferences.getInstance();
     await Future.wait([
